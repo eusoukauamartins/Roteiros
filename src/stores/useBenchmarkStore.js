@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -24,8 +25,8 @@ const useBenchmarkStore = create(
           musicRefs: data?.musicRefs || [],
           visualRefs: data?.visualRefs || [],
           observations: data?.observations || '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ benchmarks: [...get().benchmarks, benchmark] });
         return benchmark;
@@ -34,7 +35,7 @@ const useBenchmarkStore = create(
       updateBenchmark: (id, updates) => {
         set({
           benchmarks: get().benchmarks.map((b) =>
-            b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b
+            b.id === id ? { ...b, ...updates, updatedAt: getNowInSaoPauloISO() } : b
           ),
         });
       },
@@ -50,8 +51,8 @@ const useBenchmarkStore = create(
           ...orig,
           id: nanoid(),
           headline: `${orig.headline} (Cópia)`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ benchmarks: [...get().benchmarks, dup] });
         return dup;
@@ -76,8 +77,8 @@ const useBenchmarkStore = create(
           musicRefs: Array.isArray(b.musicRefs) ? b.musicRefs : [],
           visualRefs: Array.isArray(b.visualRefs) ? b.visualRefs : [],
           observations: b.observations || '',
-          createdAt: b.createdAt || new Date().toISOString(),
-          updatedAt: b.updatedAt || new Date().toISOString(),
+          createdAt: b.createdAt || getNowInSaoPauloISO(),
+          updatedAt: b.updatedAt || getNowInSaoPauloISO(),
         }));
         set({ benchmarks: safe });
       },

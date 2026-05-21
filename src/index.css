@@ -161,13 +161,37 @@ input[type="date"] {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    padding: 10px 14px;
+    padding: 8px 14px;
     color: var(--text-primary);
     font-size: 14px;
+    line-height: 1.4;
     width: 100%;
     outline: none;
     transition: all 0.2s ease;
     font-family: 'Inter', sans-serif;
+  }
+  
+  /* Fix vertical text clipping on compact elements */
+  select.h-8, input.h-8, button.h-8,
+  select.h-7, input.h-7, button.h-7,
+  .input-field.h-8, .btn.h-8, .btn-ghost.h-8,
+  .input-field.h-7, .btn.h-7, .btn-ghost.h-7 {
+    padding-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    align-items: center;
+  }
+  
+  select, select.input-field {
+    /* Ensures native select dropdowns align text properly */
+    padding-top: 8px;
+    padding-bottom: 8px;
+    line-height: normal;
+  }
+  
+  select.h-8, select.h-7 {
+    padding-top: 0;
+    padding-bottom: 0;
   }
   .input-field::placeholder {
     color: var(--text-muted);
@@ -267,7 +291,7 @@ input[type="date"] {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 9px 16px;
+    padding: 10px 16px;
     border-radius: 10px;
     color: var(--text-secondary);
     cursor: pointer;
@@ -304,7 +328,7 @@ input[type="date"] {
     text-transform: uppercase;
     letter-spacing: 1.4px;
     color: var(--text-muted);
-    padding: 20px 16px 6px 16px;
+    padding: 12px 16px 8px 16px;
     user-select: none;
   }
 

@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -23,7 +24,7 @@ const useLearningStore = create(
           isFavorite: data.isFavorite || false,
           date: data.date || toLocalISODate(new Date()),
           order: data.order ?? get().learnings.length,
-          createdAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
         };
         set({ learnings: [...get().learnings, item] });
         return item;

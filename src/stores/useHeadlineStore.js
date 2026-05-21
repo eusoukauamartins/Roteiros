@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -15,7 +16,7 @@ const useHeadlineStore = create(
           tags: data.tags || [],
           notes: data.notes || '',
           favorite: false,
-          createdAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
         };
         set({ headlines: [...get().headlines, headline] });
         return headline;

@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -29,8 +30,8 @@ const useFlowStore = create(
           recordedFilesLink: cardData.recordedFilesLink || '',
           notes: cardData.notes || '',
           tags: cardData.tags || [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
           plannedDate: cardData.plannedDate || null,
           order: get().cards.filter(c => c.status === (cardData.status || 'ideas')).length,
         };
@@ -41,7 +42,7 @@ const useFlowStore = create(
       updateCard: (id, updates) => {
         set({
           cards: get().cards.map((c) =>
-            c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
+            c.id === id ? { ...c, ...updates, updatedAt: getNowInSaoPauloISO() } : c
           ),
         });
       },
@@ -57,8 +58,8 @@ const useFlowStore = create(
           ...original,
           id: nanoid(),
           headline: `${original.headline} (cópia)`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ cards: [...get().cards, dup] });
         return dup;
@@ -68,7 +69,7 @@ const useFlowStore = create(
         set({
           cards: get().cards.map((c) =>
             c.id === id
-              ? { ...c, status: newStatus, updatedAt: new Date().toISOString() }
+              ? { ...c, status: newStatus, updatedAt: getNowInSaoPauloISO() }
               : c
           ),
         });
@@ -91,7 +92,7 @@ const useFlowStore = create(
         cards[activeIdx] = {
           ...cards[activeIdx],
           status: overStatus,
-          updatedAt: new Date().toISOString(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ cards });
       },

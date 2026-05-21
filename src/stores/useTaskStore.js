@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -81,7 +82,7 @@ const useTaskStore = create(
           completedAt: null,
           deletedAt: null,
           order: data.order ?? get().tasks.length,
-          createdAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
         };
         set({ tasks: [...get().tasks, task] });
         return task;
@@ -112,7 +113,7 @@ const useTaskStore = create(
       softDeleteTask: (id) => {
         set({
           tasks: get().tasks.map(t =>
-            t.id === id ? { ...t, status: 'deleted', deletedAt: new Date().toISOString() } : t
+            t.id === id ? { ...t, status: 'deleted', deletedAt: getNowInSaoPauloISO() } : t
           ),
         });
       },
@@ -145,7 +146,7 @@ const useTaskStore = create(
         if (task.status === 'done') {
           get().updateTask(id, { status: 'pending', completedAt: null });
         } else {
-          get().updateTask(id, { status: 'done', completedAt: new Date().toISOString() });
+          get().updateTask(id, { status: 'done', completedAt: getNowInSaoPauloISO() });
         }
       },
 

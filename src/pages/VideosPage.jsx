@@ -16,7 +16,7 @@ import useProductStore from '../stores/useProductStore';
 import useBenchmarkStore from '../stores/useBenchmarkStore';
 import useHeadlineStore from '../stores/useHeadlineStore';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatDateBR, getTodaySP, getTomorrowSP } from '../utils/dateUtils';
 
 const STATUS_COLORS = {
   'creating': '#F97316',
@@ -216,9 +216,7 @@ function TrashPanel({ isOpen, onClose }) {
                           {st?.emoji} {st?.title}
                         </span>
                         {card.deletedAt && (
-                          <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                            Excluído em {format(new Date(card.deletedAt), 'dd/MM HH:mm')}
-                          </span>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Excluído em {formatDateBR(card.deletedAt, true)}</span>
                         )}
                       </div>
                     </div>
@@ -370,11 +368,11 @@ function VideoEditorModal({ card, onClose }) {
                   {card.headline ? 'Editar Vídeo' : 'Novo Vídeo'}
                 </h3>
                 <p className="text-[11px] flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                  <span>Criado em {format(new Date(card.createdAt), "dd/MM/yyyy 'às' HH:mm")}</span>
+                  <span>Criado em {formatDateBR(card.createdAt, true)}</span>
                   {lastSaved && (
                     <span className="flex items-center gap-1" style={{ color: '#10B981' }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-                      Salvo {format(lastSaved, "HH:mm:ss")}
+                      Salvo {lastSaved.toLocaleTimeString('pt-BR')}
                     </span>
                   )}
                 </p>
@@ -593,9 +591,9 @@ function VideoEditorModal({ card, onClose }) {
                 </div>
               </MacroGroup>
 
-              <div className="flex gap-4 text-xs pb-2" style={{ color: 'var(--text-muted)' }}>
-                <span>Criado: {format(new Date(card.createdAt), "dd/MM/yyyy 'às' HH:mm")}</span>
-                <span>Atualizado: {format(new Date(card.updatedAt), "dd/MM/yyyy 'às' HH:mm")}</span>
+              <div className="flex justify-between items-center text-[9px] mt-4" style={{ color: 'var(--text-muted)' }}>
+                <span>Criado: {formatDateBR(card.createdAt, true)}</span>
+                <span>Atualizado: {formatDateBR(card.updatedAt, true)}</span>
               </div>
             </div>
           </div>
@@ -651,12 +649,12 @@ function KanbanCardContent({ card }) {
         </div>
         {card.status === 'programmed' && (card.plannedDate || card.plannedTime) ? (
           <span className="text-[9px] font-bold" style={{ color: 'var(--accent-light)' }}>
-            {card.plannedDate ? format(new Date(card.plannedDate + 'T12:00:00'), 'dd/MM') : ''}
+            {card.plannedDate ? formatDateBR(card.plannedDate, false) : ''}
             {card.plannedTime && ` ${card.plannedTime}`}
           </span>
         ) : (
           <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>
-            {format(new Date(card.updatedAt), 'dd/MM', { locale: ptBR })}
+            {formatDateBR(card.updatedAt, false)}
           </span>
         )}
       </div>
@@ -692,10 +690,8 @@ function DroppableColumn({ column, cards, onCardClick }) {
   // Group by date if programmed
   let content;
   if (isProgrammed) {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+    const todayStr = getTodaySP();
+    const tomorrowStr = getTomorrowSP();
 
     const grouped = {
       hoje: [],
@@ -743,7 +739,7 @@ function DroppableColumn({ column, cards, onCardClick }) {
         )}
         {futureKeys.map(dateKey => (
           <div key={dateKey}>
-            <GroupHeader title={format(new Date(dateKey + 'T12:00:00'), 'dd/MM')} />
+            <GroupHeader title={formatDateBR(dateKey, false)} />
             {grouped.futuro[dateKey].map(card => <SortableCard key={card.id} card={card} onClick={onCardClick} />)}
           </div>
         ))}
@@ -1094,7 +1090,7 @@ export default function VideosPage() {
                         {card.music?.length > 0 && <Music size={11} style={{ color: '#10B981' }} />}
                       </div>
                       {w > 0 && <span className="text-[9px] font-medium tabular-nums w-7 text-right" style={{ color: 'var(--text-muted)' }}>{w}w</span>}
-                      <span className="text-[9px] w-10 text-right" style={{ color: 'var(--text-muted)' }}>{format(new Date(card.updatedAt), 'dd/MM')}</span>
+                      <span className="text-[9px] w-10 text-right" style={{ color: 'var(--text-muted)' }}>{formatDateBR(card.updatedAt, false)}</span>
                     </div>
                   </div>
                 );

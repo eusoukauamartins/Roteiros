@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -15,7 +16,7 @@ const useMusicStore = create(
           niche: data.niche || '',
           tags: data.tags || [],
           notes: data.notes || '',
-          createdAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
         };
         set({ musics: [...get().musics, music] });
         return music;

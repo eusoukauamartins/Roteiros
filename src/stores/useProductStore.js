@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -20,15 +21,15 @@ const useProductStore = create(
           notes: data?.notes || '',
           cta: data?.cta || '',
           links: data?.links || [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ products: [...get().products, product] });
         return product;
       },
       updateProduct: (id, updates) => {
         set({
-          products: get().products.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p)
+          products: get().products.map(p => p.id === id ? { ...p, ...updates, updatedAt: getNowInSaoPauloISO() } : p)
         });
       },
       deleteProduct: (id) => {
@@ -54,15 +55,15 @@ const useProductStore = create(
           cpa: data?.cpa || 0,
           commissions: data?.commissions || 0,
           percentageCosts: data?.percentageCosts || 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ projections: [...get().projections, proj] });
         return proj;
       },
       updateProjection: (id, updates) => {
         set({
-          projections: get().projections.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p)
+          projections: get().projections.map(p => p.id === id ? { ...p, ...updates, updatedAt: getNowInSaoPauloISO() } : p)
         });
       },
       deleteProjection: (id) => {
@@ -75,8 +76,8 @@ const useProductStore = create(
           ...orig,
           id: nanoid(),
           name: `${orig.name} (cópia)`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ projections: [...get().projections, dup] });
         return dup;
@@ -94,8 +95,8 @@ const useProductStore = create(
           notes: p.notes || '',
           cta: p.cta || '',
           links: Array.isArray(p.links) ? p.links : [],
-          createdAt: p.createdAt || new Date().toISOString(),
-          updatedAt: p.updatedAt || new Date().toISOString(),
+          createdAt: p.createdAt || getNowInSaoPauloISO(),
+          updatedAt: p.updatedAt || getNowInSaoPauloISO(),
         }));
         set({ products: safe });
       },
@@ -115,8 +116,8 @@ const useProductStore = create(
           cpa: Number(p.cpa) || 0,
           commissions: Number(p.commissions) || 0,
           percentageCosts: Number(p.percentageCosts) || 0,
-          createdAt: p.createdAt || new Date().toISOString(),
-          updatedAt: p.updatedAt || new Date().toISOString(),
+          createdAt: p.createdAt || getNowInSaoPauloISO(),
+          updatedAt: p.updatedAt || getNowInSaoPauloISO(),
         }));
         set({ projections: safe });
       }

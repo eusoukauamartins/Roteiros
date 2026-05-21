@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -39,7 +40,7 @@ function migrateCard(c) {
   // Postado: arquiva mas mantém o status para histórico
   if (next.status === 'posted' && !next.archived) {
     next.archived = true;
-    next.postedAt = next.postedAt || next.updatedAt || new Date().toISOString();
+    next.postedAt = next.postedAt || next.updatedAt || getNowInSaoPauloISO();
   }
   // Campos novos com defaults seguros
   if (next.archived === undefined) next.archived = false;
@@ -81,8 +82,8 @@ const useVideoStore = create(
           performance: cardData.performance || '',
           performanceNotes: cardData.performanceNotes || '',
           postedAt: cardData.postedAt || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
           plannedDate: cardData.plannedDate || null,
           plannedTime: cardData.plannedTime || null,
           order: get().cards.filter(c => c.status === status && !c.archived).length,
@@ -94,7 +95,7 @@ const useVideoStore = create(
       updateCard: (id, updates) => {
         set({
           cards: get().cards.map((c) =>
-            c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
+            c.id === id ? { ...c, ...updates, updatedAt: getNowInSaoPauloISO() } : c
           ),
         });
       },
@@ -103,7 +104,7 @@ const useVideoStore = create(
       deleteCard: (id) => {
         const card = get().cards.find((c) => c.id === id);
         if (!card) return;
-        const trashedCard = { ...card, deletedAt: new Date().toISOString() };
+        const trashedCard = { ...card, deletedAt: getNowInSaoPauloISO() };
         set({
           cards: get().cards.filter((c) => c.id !== id),
           trash: [...(get().trash || []), trashedCard],
@@ -116,7 +117,7 @@ const useVideoStore = create(
         const { deletedAt, ...restoredCard } = card;
         set({
           trash: get().trash.filter((c) => c.id !== id),
-          cards: [...get().cards, { ...restoredCard, updatedAt: new Date().toISOString() }],
+          cards: [...get().cards, { ...restoredCard, updatedAt: getNowInSaoPauloISO() }],
         });
       },
 
@@ -137,8 +138,8 @@ const useVideoStore = create(
           headline: `${original.headline} (cópia)`,
           archived: false,
           postedAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
+          updatedAt: getNowInSaoPauloISO(),
         };
         set({ cards: [...get().cards, dup] });
         return dup;
@@ -148,7 +149,7 @@ const useVideoStore = create(
         set({
           cards: get().cards.map((c) =>
             c.id === id
-              ? { ...c, status: newStatus, updatedAt: new Date().toISOString() }
+              ? { ...c, status: newStatus, updatedAt: getNowInSaoPauloISO() }
               : c
           ),
         });
@@ -173,8 +174,8 @@ const useVideoStore = create(
                   ...c,
                   status: 'posted',
                   archived: true,
-                  postedAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
+                  postedAt: getNowInSaoPauloISO(),
+                  updatedAt: getNowInSaoPauloISO(),
                 }
               : c
           ),
@@ -186,7 +187,7 @@ const useVideoStore = create(
         set({
           cards: get().cards.map((c) =>
             c.id === id
-              ? { ...c, archived: false, status: backTo, postedAt: null, updatedAt: new Date().toISOString() }
+              ? { ...c, archived: false, status: backTo, postedAt: null, updatedAt: getNowInSaoPauloISO() }
               : c
           ),
         });
@@ -200,7 +201,7 @@ const useVideoStore = create(
         cards[activeIdx] = {
           ...cards[activeIdx],
           status: overStatus,
-          updatedAt: new Date().toISOString(),
+          updatedAt: getNowInSaoPauloISO(),
         };
 
         if (overId !== overStatus) {

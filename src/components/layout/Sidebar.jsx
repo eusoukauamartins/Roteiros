@@ -77,7 +77,7 @@ export default function Sidebar() {
       }}
     >
       {/* Header: Logo (no container) + app name + collapse */}
-      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-3' : 'justify-between px-4'} py-4`}>
+      <div className={`flex items-center ${sidebarCollapsed ? 'justify-center px-3' : 'justify-between px-4'} pt-6 pb-5`}>
         <div className="flex items-center gap-2">
           <QuillLogo size={sidebarCollapsed ? 24 : 28} />
           {!sidebarCollapsed && (
@@ -113,7 +113,7 @@ export default function Sidebar() {
       {/* Nav Groups */}
       <nav className="flex-1 overflow-y-auto pb-2">
         {navGroups.map((group, gi) => (
-          <div key={gi}>
+          <div key={gi} className="mb-4">
             {!sidebarCollapsed && group.label && (
               <div className="sidebar-section-label">{group.label}</div>
             )}
@@ -127,7 +127,7 @@ export default function Sidebar() {
                   to={item.path}
                   end={item.path === '/'}
                   className={({ isActive }) =>
-                    `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'justify-center px-3' : ''}`
+                    `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'justify-center px-3' : ''} ${gi === 0 && !sidebarCollapsed ? 'py-[11px]' : ''}`
                   }
                   title={item.label}
                 >

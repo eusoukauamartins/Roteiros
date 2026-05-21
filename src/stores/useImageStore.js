@@ -1,3 +1,4 @@
+import { getNowInSaoPauloISO } from '../utils/dateUtils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
@@ -16,7 +17,7 @@ const useImageStore = create(
           link: data.link || '',
           description: data.description || '',
           notes: data.notes || '',
-          createdAt: new Date().toISOString(),
+          createdAt: getNowInSaoPauloISO(),
         };
         set({ images: [...get().images, image] });
         return image;
