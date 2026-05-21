@@ -362,7 +362,14 @@ export function exportData(options = {}) {
     tasks = filterByDateRange(tasks, startDate, endDate);
     if (onlyCompleted) tasks = tasks.filter(t => t.status === 'done');
     else if (status) tasks = tasks.filter(t => t.status === status);
-    data.tasks = tasks;
+    
+    // Scrub fake placeholder dates
+    const cleanDate = (d) => (d === '0001-01-01' || d === '0001-01-01T00:00:00.000Z' || d === '0001-01-01T00:00:00Z') ? '' : (d || '');
+    data.tasks = tasks.map(t => ({
+      ...t,
+      dueDate: cleanDate(t.dueDate),
+      scheduledDate: cleanDate(t.scheduledDate)
+    }));
   }
   if (sections.includes('benchmarks')) {
     let benchmarks = useBenchmarkStore.getState().benchmarks;
@@ -378,6 +385,9 @@ export function exportData(options = {}) {
   }
   if (sections.includes('niches')) {
     data.niches = useNicheStore.getState().niches;
+  }
+  if (sections.includes('learnings') || sections.includes('aprendizados')) {
+    data.learnings = applyFilters(useLearningStore.getState().learnings || [], { hasFavorite: true });
   }
 
   // ===== ENRICHMENT PARA IA =====
@@ -428,6 +438,7 @@ export function exportMarkdownSummary() {
   const posted = cards.filter(c => c.archived);
   const benchmarks = useBenchmarkStore.getState().benchmarks;
   const products = useProductStore.getState().products;
+  const learnings = useLearningStore.getState().learnings || [];
 
   const today = new Date().toLocaleDateString('pt-BR');
   let md = `# Roteiros — Resumo (${today})\n\n`;
@@ -436,7 +447,8 @@ export function exportMarkdownSummary() {
   md += `- **${active.length}** vídeos em produção\n`;
   md += `- **${posted.length}** vídeos postados\n`;
   md += `- **${benchmarks.length}** benchmarks analisados\n`;
-  md += `- **${products.length}** produtos cadastrados\n\n`;
+  md += `- **${products.length}** produtos cadastrados\n`;
+  md += `- **${learnings.length}** aprendizados catalogados\n\n`;
 
   md += `## Pipeline Ativo\n`;
   const stages = [
@@ -464,6 +476,13 @@ export function exportMarkdownSummary() {
     md += `\n## Últimos Benchmarks\n`;
     benchmarks.slice(0, 10).forEach(b => {
       md += `- **${b.headline || 'Sem headline'}** — ${b.creator || 'sem creator'} (${b.niche || 'sem nicho'})\n`;
+    });
+  }
+
+  if (learnings.length > 0) {
+    md += `\n## Últimos Aprendizados\n`;
+    learnings.slice(0, 10).forEach(l => {
+      md += `- **${l.title || 'Sem título'}** ${l.niche ? `(${l.niche})` : ''}\n`;
     });
   }
 

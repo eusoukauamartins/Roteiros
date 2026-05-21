@@ -63,6 +63,7 @@ const useTaskStore = create(
       tasks: [],
 
       addTask: (data) => {
+        const cleanDate = (d) => (d === '0001-01-01' || d === '0001-01-01T00:00:00.000Z' || d === '0001-01-01T00:00:00Z') ? '' : (d || '');
         const task = {
           id: nanoid(),
           title: data.title || '',
@@ -71,9 +72,8 @@ const useTaskStore = create(
           status: data.status || 'pending',
           type: data.type || 'general',
           relatedCardId: data.relatedCardId || null,
-          // Lyria fields
-          dueDate: data.dueDate || '',
-          scheduledDate: data.scheduledDate || '',
+          dueDate: cleanDate(data.dueDate),
+          scheduledDate: cleanDate(data.scheduledDate),
           category: data.category || '',
           recurrence: data.recurrence || 'única',
           recurrenceDay: data.recurrenceDay || '',
@@ -89,9 +89,13 @@ const useTaskStore = create(
       },
 
       updateTask: (id, updates) => {
+        const cleanDate = (d) => (d === '0001-01-01' || d === '0001-01-01T00:00:00.000Z' || d === '0001-01-01T00:00:00Z') ? '' : d;
+        const cleanedUpdates = { ...updates };
+        if (cleanedUpdates.dueDate !== undefined) cleanedUpdates.dueDate = cleanDate(cleanedUpdates.dueDate);
+        if (cleanedUpdates.scheduledDate !== undefined) cleanedUpdates.scheduledDate = cleanDate(cleanedUpdates.scheduledDate);
         set({
           tasks: get().tasks.map((t) =>
-            t.id === id ? { ...t, ...updates } : t
+            t.id === id ? { ...t, ...cleanedUpdates } : t
           ),
         });
       },
@@ -108,6 +112,15 @@ const useTaskStore = create(
 
       deleteTask: (id) => {
         set({ tasks: get().tasks.filter((t) => t.id !== id) });
+      },
+
+      reorderTasks: (reorderedTasks) => {
+        const tasks = [...get().tasks];
+        reorderedTasks.forEach(({ id, order }) => {
+          const idx = tasks.findIndex(t => t.id === id);
+          if (idx !== -1) tasks[idx].order = order;
+        });
+        set({ tasks });
       },
 
       softDeleteTask: (id) => {
@@ -151,7 +164,13 @@ const useTaskStore = create(
       },
 
       importTasks: (newTasks) => {
-        set({ tasks: newTasks });
+        const cleanDate = (d) => (d === '0001-01-01' || d === '0001-01-01T00:00:00.000Z' || d === '0001-01-01T00:00:00Z') ? '' : d;
+        const cleanedTasks = newTasks.map(t => ({
+          ...t,
+          dueDate: cleanDate(t.dueDate),
+          scheduledDate: cleanDate(t.scheduledDate)
+        }));
+        set({ tasks: cleanedTasks });
       },
     }),
     { name: 'otimizador-tasks' }

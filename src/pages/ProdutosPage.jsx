@@ -3,7 +3,7 @@ import {
   Package, Plus, Settings2, BarChart2, DollarSign,
   TrendingUp, LinkIcon, X, Maximize2, FileText, Target,
   ShoppingCart, Activity, Wallet, Percent, ChevronDown, Copy, Trash2,
-  Code, CreditCard, Users
+  Code, CreditCard, Users, Check
 } from 'lucide-react';
 import useProductStore from '../stores/useProductStore';
 
@@ -53,12 +53,46 @@ function PageLinksEditor({ links, onChange }) {
 function ProductsTab() {
   const { products, addProduct, updateProduct, deleteProduct } = useProductStore();
   const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const editingProduct = products.find(p => p.id === editingId);
 
   const handleCreate = () => {
     const p = addProduct({ name: 'Novo Produto', price: 97 });
     setEditingId(p.id);
+    setDraft({ ...p, name: 'Novo Produto', price: 97 });
+    setHasChanges(false);
+  };
+
+  const openEdit = (product) => {
+    setEditingId(product.id);
+    setDraft({ ...product });
+    setHasChanges(false);
+  };
+
+  const updateDraft = (updates) => {
+    setDraft(prev => ({ ...prev, ...updates }));
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    if (draft && editingId) {
+      const { id, createdAt, ...fields } = draft;
+      updateProduct(editingId, fields);
+      setHasChanges(false);
+      setEditingId(null);
+      setDraft(null);
+    }
+  };
+
+  const handleCancel = () => {
+    if (hasChanges) {
+      if (!window.confirm('Descartar alterações não salvas?')) return;
+    }
+    setEditingId(null);
+    setDraft(null);
+    setHasChanges(false);
   };
 
   const getTicketColor = (type) => {
@@ -68,34 +102,47 @@ function ProductsTab() {
     return 'var(--text-muted)';
   };
 
-  if (editingId && editingProduct) {
+  if (editingId && draft) {
     return (
       <div className="h-full overflow-y-auto px-6 py-6 animate-fade-in custom-scrollbar">
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
             <div className="flex items-center gap-3">
-              <button onClick={() => setEditingId(null)} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
+              <button onClick={handleCancel} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
                 <X size={18} style={{ color: 'var(--text-muted)' }} />
               </button>
               <div>
                 <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Editar Produto</h2>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Mantenha as informações claras e objetivas</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {hasChanges ? 'Alterações não salvas' : 'Mantenha as informações claras e objetivas'}
+                </p>
               </div>
             </div>
-            <button onClick={() => { if(window.confirm('Excluir produto?')) { deleteProduct(editingId); setEditingId(null); } }} 
-              className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10">
-              <Trash2 size={14} className="inline mr-1" /> Excluir
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={handleCancel}
+                className="btn-ghost text-xs px-4 py-2">
+                Cancelar
+              </button>
+              <button onClick={handleSave}
+                className="btn-accent text-xs px-5 py-2 flex items-center gap-1.5"
+                style={{ opacity: hasChanges ? 1 : 0.5 }}>
+                <Check size={14} /> Salvar
+              </button>
+              <button onClick={() => { if(window.confirm('Excluir produto?')) { deleteProduct(editingId); setEditingId(null); setDraft(null); } }} 
+                className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
+                <Trash2 size={14} className="inline mr-1" /> Excluir
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-5">
             <div className="col-span-2 sm:col-span-1">
               <label className="field-label">Nome do Produto</label>
-              <input className="input-field font-semibold text-base" value={editingProduct.name} onChange={e => updateProduct(editingId, { name: e.target.value })} />
+              <input className="input-field font-semibold text-base" value={draft.name} onChange={e => updateDraft({ name: e.target.value })} />
             </div>
             <div className="col-span-2 sm:col-span-1">
               <label className="field-label">Tipo de Ticket</label>
-              <select className="input-field" value={editingProduct.ticketType} onChange={e => updateProduct(editingId, { ticketType: e.target.value })}>
+              <select className="input-field" value={draft.ticketType} onChange={e => updateDraft({ ticketType: e.target.value })}>
                 <option value="Low Ticket">Low Ticket</option>
                 <option value="Medium Ticket">Medium Ticket</option>
                 <option value="High Ticket">High Ticket</option>
@@ -106,33 +153,45 @@ function ProductsTab() {
           <div className="grid grid-cols-2 gap-5">
             <div className="col-span-1">
               <label className="field-label">Preço Atual (R$)</label>
-              <input type="number" step="0.01" className="input-field" value={editingProduct.price} onChange={e => updateProduct(editingId, { price: parseFloat(e.target.value) || 0 })} />
+              <input type="number" step="0.01" className="input-field" value={draft.price} onChange={e => updateDraft({ price: parseFloat(e.target.value) || 0 })} />
             </div>
             <div className="col-span-1">
               <label className="field-label">Preço "De" Comparativo (R$)</label>
-              <input type="number" step="0.01" className="input-field" value={editingProduct.comparePrice} onChange={e => updateProduct(editingId, { comparePrice: parseFloat(e.target.value) || 0 })} />
+              <input type="number" step="0.01" className="input-field" value={draft.comparePrice} onChange={e => updateDraft({ comparePrice: parseFloat(e.target.value) || 0 })} />
             </div>
           </div>
 
           <div>
             <label className="field-label">Descrição Curta</label>
-            <input className="input-field" placeholder="Promessa principal do produto..." value={editingProduct.shortDescription} onChange={e => updateProduct(editingId, { shortDescription: e.target.value })} />
+            <input className="input-field" placeholder="Promessa principal do produto..." value={draft.shortDescription} onChange={e => updateDraft({ shortDescription: e.target.value })} />
           </div>
 
           <div>
             <label className="field-label">CTA Principal</label>
-            <input className="input-field" placeholder="Ex: Quero garantir minha vaga" value={editingProduct.cta} onChange={e => updateProduct(editingId, { cta: e.target.value })} />
+            <input className="input-field" placeholder="Ex: Quero garantir minha vaga" value={draft.cta} onChange={e => updateDraft({ cta: e.target.value })} />
           </div>
 
           <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
             <label className="field-label flex items-center gap-2 mb-4"><LinkIcon size={14}/> Links e Páginas do Funil</label>
-            <PageLinksEditor links={editingProduct.links || []} onChange={newLinks => updateProduct(editingId, { links: newLinks })} />
+            <PageLinksEditor links={draft.links || []} onChange={newLinks => updateDraft({ links: newLinks })} />
           </div>
 
           <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
             <label className="field-label">Observações Estratégicas</label>
-            <textarea className="textarea-field min-h-[100px]" placeholder="Anotações sobre a oferta, bônus, detalhes importantes..." value={editingProduct.notes} onChange={e => updateProduct(editingId, { notes: e.target.value })} />
+            <textarea className="textarea-field min-h-[100px]" placeholder="Anotações sobre a oferta, bônus, detalhes importantes..." value={draft.notes} onChange={e => updateDraft({ notes: e.target.value })} />
           </div>
+
+          {/* Bottom Save/Cancel bar */}
+          {hasChanges && (
+            <div className="sticky bottom-4 flex justify-end gap-3 pt-4">
+              <button onClick={handleCancel} className="btn-ghost text-sm px-5 py-2.5">
+                Cancelar
+              </button>
+              <button onClick={handleSave} className="btn-accent text-sm px-6 py-2.5 flex items-center gap-2">
+                <Check size={15} /> Salvar Produto
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -160,7 +219,7 @@ function ProductsTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {products.map(p => (
-            <div key={p.id} className="stat-card cursor-pointer group relative overflow-hidden" onClick={() => setEditingId(p.id)}
+            <div key={p.id} className="stat-card cursor-pointer group relative overflow-hidden" onClick={() => openEdit(p)}
                  style={{ padding: '20px' }}>
               <div className="absolute left-0 top-0 bottom-0 w-1 transition-all group-hover:w-1.5" style={{ background: getTicketColor(p.ticketType) }} />
               <div className="flex justify-between items-start mb-3">

@@ -3,7 +3,7 @@ import {
   Sun, Moon, Download, Upload, Trash2, Check, X,
   FileText, Type, GitBranch, CheckSquare, Image, Music,
   Star, Filter, Calendar, Palette, Tag, Database, AlertTriangle,
-  Telescope, Package, Bot, User, Sparkles, Layers, ChevronDown, ChevronRight
+  Telescope, Package, Bot, User, Sparkles, Layers, ChevronDown, ChevronRight, Lightbulb
 } from 'lucide-react';
 import useSettingsStore from '../stores/useSettingsStore';
 import useNicheStore from '../stores/useNicheStore';
@@ -289,7 +289,7 @@ function ExportModal({ isOpen, onClose }) {
   const [sections, setSections] = useState({
     headlines: true, scripts: true, flow: true,
     tasks: true, images: true, musics: true,
-    benchmarks: true, products: true,
+    benchmarks: true, products: true, learnings: true,
   });
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -308,6 +308,7 @@ function ExportModal({ isOpen, onClose }) {
     { key: 'tasks', label: 'Tarefas', icon: CheckSquare },
     { key: 'images', label: 'Acervo', icon: Image },
     { key: 'musics', label: 'Músicas', icon: Music },
+    { key: 'learnings', label: 'Aprendizados', icon: Lightbulb },
   ];
 
   const toggleSection = (key) => {
@@ -335,9 +336,11 @@ function ExportModal({ isOpen, onClose }) {
 
   const handleExport = () => {
     if (!preview) return;
-    const dateSuffix = startDate || endDate ? `-${startDate || 'inicio'}-${endDate || 'fim'}` : '';
+    const now = new Date();
+    const timestamp = now.toLocaleDateString('pt-BR').replace(/\//g, '-') + '_' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+    const dateSuffix = startDate || endDate ? `-[${startDate || 'inicio'}-a-${endDate || 'fim'}]` : '';
     const aiSuffix = aiOptimized ? '-ai' : '';
-    downloadJSON(preview, `roteiros-export${aiSuffix}${dateSuffix}.json`);
+    downloadJSON(preview, `roteiros_${timestamp}${aiSuffix}${dateSuffix}.json`);
     toast.success(`Export gerado · ${itemCount} itens`);
     onClose();
   };

@@ -3,6 +3,7 @@ import {
   Plus, Search, Trash2, X, Edit3, Check, Clock, AlertTriangle, Flag,
   Repeat, CalendarClock, RotateCcw, GripVertical, Archive, CheckSquare
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import useTaskStore, {
   isTaskCompleted, isFutureTask, getTaskPeriodKey, formatDate, priorityValue
 } from '../stores/useTaskStore';
@@ -124,7 +125,7 @@ function TaskCard({ task, onToggle, onEdit, onDelete, isArchive, dragHandlers })
 /* ──────────────────────────────────────────────
    TaskColumn  (for Pendentes / Agendadas)
    ────────────────────────────────────────────── */
-function TaskColumn({ title, icon: Icon, tasks, modifier, onToggle, onEdit, onDelete }) {
+function TaskColumn({ title, icon: Icon, tasks, modifier, onToggle, onEdit, onDelete, droppableId }) {
   return (
     <div className={`rounded-xl overflow-hidden flex flex-col ${modifier || ''}`}
       style={{
@@ -143,15 +144,31 @@ function TaskColumn({ title, icon: Icon, tasks, modifier, onToggle, onEdit, onDe
           {tasks.length}
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-2" style={{ maxHeight: '65vh' }}>
-        {tasks.length === 0 ? (
-          <p className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>Nenhuma tarefa</p>
-        ) : (
-          tasks.map(t => (
-            <TaskCard key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
-          ))
+      <Droppable droppableId={droppableId}>
+        {(provided) => (
+          <div
+            className="flex-1 overflow-y-auto p-3 space-y-2"
+            style={{ maxHeight: '65vh' }}
+            {...provided.droppableProps}
+            ref={provided.innerRef}
+          >
+            {tasks.length === 0 ? (
+              <p className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>Nenhuma tarefa</p>
+            ) : (
+              tasks.map((t, index) => (
+                <Draggable key={t.id} draggableId={t.id} index={index}>
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.draggableProps} style={{...provided.draggableProps.style}}>
+                      <TaskCard task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} dragHandlers={provided.dragHandleProps} />
+                    </div>
+                  )}
+                </Draggable>
+              ))
+            )}
+            {provided.placeholder}
+          </div>
         )}
-      </div>
+      </Droppable>
     </div>
   );
 }
@@ -166,9 +183,24 @@ function RoutineColumn({ dailyTasks, weeklyByDay, todayWeekday, onToggle, onEdit
   const otherDays = orderedDays.filter(d => d !== todayWeekday);
   const sortedDays = [...todayDays, ...otherDays];
 
-  const renderCards = (tasks) => tasks.map(task => (
-    <TaskCard key={task.id} task={task} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
-  ));
+  const renderCards = (tasks, droppableId) => (
+    <Droppable droppableId={droppableId}>
+      {(provided) => (
+        <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+          {tasks.map((task, index) => (
+            <Draggable key={task.id} draggableId={task.id} index={index}>
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.draggableProps} style={{...provided.draggableProps.style}}>
+                  <TaskCard task={task} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} dragHandlers={provided.dragHandleProps} />
+                </div>
+              )}
+            </Draggable>
+          ))}
+          {provided.placeholder}
+        </div>
+      )}
+    </Droppable>
+  );
 
   return (
     <div className="rounded-xl overflow-hidden flex flex-col"
@@ -199,9 +231,9 @@ function RoutineColumn({ dailyTasks, weeklyByDay, todayWeekday, onToggle, onEdit
           <>
             {dailyTasks.length > 0 && (
               <>
-                <div className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                <div className="text-[10px] font-bold uppercase tracking-wider mb-1 mt-2"
                   style={{ color: 'var(--accent-light)' }}>Diárias</div>
-                {renderCards(dailyTasks)}
+                {renderCards(dailyTasks, 'dailyTasks')}
               </>
             )}
             {sortedDays.map(day => (
@@ -209,7 +241,7 @@ function RoutineColumn({ dailyTasks, weeklyByDay, todayWeekday, onToggle, onEdit
                 {(dailyTasks.length > 0 || sortedDays.indexOf(day) > 0) && (
                   <div className="my-2" style={{ height: 1, background: 'var(--border-color)', opacity: 0.5 }} />
                 )}
-                <div className="text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-2"
+                <div className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-2"
                   style={{ color: day === todayWeekday ? 'var(--accent-light)' : 'var(--text-muted)' }}>
                   {WEEKDAY_LABELS[day]}
                   {day === todayWeekday && (
@@ -217,7 +249,7 @@ function RoutineColumn({ dailyTasks, weeklyByDay, todayWeekday, onToggle, onEdit
                       style={{ background: 'var(--accent-light)' }}>HOJE</span>
                   )}
                 </div>
-                {renderCards(weeklyByDay[day])}
+                {renderCards(weeklyByDay[day], `weekly-${day}`)}
               </div>
             ))}
           </>
@@ -298,7 +330,7 @@ export default function TasksPage() {
 
   /* ── handlers ── */
   const openCreate = () => {
-    setForm({ ...defaultForm, scheduledDate: new Date().toISOString().split('T')[0] });
+    setForm({ ...defaultForm });
     setEditing(null);
     setShowForm(true);
   };
@@ -325,8 +357,31 @@ export default function TasksPage() {
   };
   const handleFastAdd = (e) => {
     if (e.key === 'Enter' && fastAdd.trim()) {
-      addTask({ ...defaultForm, title: fastAdd.trim(), scheduledDate: new Date().toISOString().split('T')[0] });
+      addTask({ ...defaultForm, title: fastAdd.trim() });
       setFastAdd('');
+    }
+  };
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    const { source, destination } = result;
+    if (source.droppableId !== destination.droppableId) return;
+
+    let list = [];
+    if (source.droppableId === 'pendingTasks') list = [...pendingTasks];
+    else if (source.droppableId === 'scheduledTasks') list = [...scheduledTasks];
+    else if (source.droppableId === 'dailyTasks') list = [...dailyTasks];
+    else if (source.droppableId.startsWith('weekly-')) {
+       const day = source.droppableId.split('-')[1];
+       list = [...weeklyByDay[day]];
+    }
+
+    if (list.length > 0) {
+      const [removed] = list.splice(source.index, 1);
+      list.splice(destination.index, 0, removed);
+
+      const updates = list.map((t, i) => ({ id: t.id, order: i }));
+      useTaskStore.getState().reorderTasks(updates);
     }
   };
 
@@ -413,33 +468,37 @@ export default function TasksPage() {
               <button className="btn-accent mt-4 text-sm" onClick={openCreate}><Plus size={14} /> Nova Tarefa</button>
             </div>
           ) : (
-            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(3, 1fr)', alignItems: 'start' }}>
-              <RoutineColumn
-                dailyTasks={dailyTasks}
-                weeklyByDay={weeklyByDay}
-                todayWeekday={todayWeekday}
-                onToggle={t => toggleStatus(t.id)}
-                onEdit={openEdit}
-                onDelete={t => softDeleteTask(t.id)}
-              />
-              <TaskColumn
-                title="Pendentes"
-                icon={Clock}
-                tasks={pendingTasks}
-                onToggle={t => toggleStatus(t.id)}
-                onEdit={openEdit}
-                onDelete={t => softDeleteTask(t.id)}
-              />
-              <TaskColumn
-                title="Tarefas Agendadas"
-                icon={CalendarClock}
-                tasks={scheduledTasks}
-                modifier="task-column--scheduled"
-                onToggle={t => toggleStatus(t.id)}
-                onEdit={openEdit}
-                onDelete={t => softDeleteTask(t.id)}
-              />
-            </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(3, 1fr)', alignItems: 'start' }}>
+                <RoutineColumn
+                  dailyTasks={dailyTasks}
+                  weeklyByDay={weeklyByDay}
+                  todayWeekday={todayWeekday}
+                  onToggle={t => toggleStatus(t.id)}
+                  onEdit={openEdit}
+                  onDelete={t => softDeleteTask(t.id)}
+                />
+                <TaskColumn
+                  title="Pendentes"
+                  icon={Clock}
+                  tasks={pendingTasks}
+                  droppableId="pendingTasks"
+                  onToggle={t => toggleStatus(t.id)}
+                  onEdit={openEdit}
+                  onDelete={t => softDeleteTask(t.id)}
+                />
+                <TaskColumn
+                  title="Tarefas Agendadas"
+                  icon={CalendarClock}
+                  tasks={scheduledTasks}
+                  modifier="task-column--scheduled"
+                  droppableId="scheduledTasks"
+                  onToggle={t => toggleStatus(t.id)}
+                  onEdit={openEdit}
+                  onDelete={t => softDeleteTask(t.id)}
+                />
+              </div>
+            </DragDropContext>
           )}
         </div>
       )}
