@@ -16,6 +16,7 @@ const useMusicStore = create(
           niche: data.niche || '',
           tags: data.tags || [],
           notes: data.notes || '',
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
         };
         set({ musics: [...get().musics, music] });
@@ -31,6 +32,22 @@ const useMusicStore = create(
       },
 
       deleteMusic: (id) => {
+        set({
+          musics: get().musics.map((m) =>
+            m.id === id ? { ...m, deletedAt: getNowInSaoPauloISO() } : m
+          ),
+        });
+      },
+
+      restoreMusic: (id) => {
+        set({
+          musics: get().musics.map((m) =>
+            m.id === id ? { ...m, deletedAt: null } : m
+          ),
+        });
+      },
+
+      permanentlyDeleteMusic: (id) => {
         set({ musics: get().musics.filter((m) => m.id !== id) });
       },
 

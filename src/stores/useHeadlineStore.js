@@ -16,6 +16,7 @@ const useHeadlineStore = create(
           tags: data.tags || [],
           notes: data.notes || '',
           favorite: false,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
         };
         set({ headlines: [...get().headlines, headline] });
@@ -31,6 +32,22 @@ const useHeadlineStore = create(
       },
 
       deleteHeadline: (id) => {
+        set({
+          headlines: get().headlines.map((h) =>
+            h.id === id ? { ...h, deletedAt: getNowInSaoPauloISO() } : h
+          ),
+        });
+      },
+
+      restoreHeadline: (id) => {
+        set({
+          headlines: get().headlines.map((h) =>
+            h.id === id ? { ...h, deletedAt: null } : h
+          ),
+        });
+      },
+
+      permanentlyDeleteHeadline: (id) => {
         set({ headlines: get().headlines.filter((h) => h.id !== id) });
       },
 

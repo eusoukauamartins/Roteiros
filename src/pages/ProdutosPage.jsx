@@ -3,7 +3,7 @@ import {
   Package, Plus, Settings2, BarChart2, DollarSign,
   TrendingUp, LinkIcon, X, Maximize2, FileText, Target,
   ShoppingCart, Activity, Wallet, Percent, ChevronDown, Copy, Trash2,
-  Code, CreditCard, Users, Check
+  Code, CreditCard, Users, Check, RotateCcw
 } from 'lucide-react';
 import useProductStore from '../stores/useProductStore';
 
@@ -51,10 +51,13 @@ function PageLinksEditor({ links, onChange }) {
 
 // --- PRODUCTS TAB ---
 function ProductsTab() {
-  const { products, addProduct, updateProduct, deleteProduct } = useProductStore();
+  const { products, addProduct, updateProduct, deleteProduct, restoreProduct, permanentlyDeleteProduct } = useProductStore();
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+
+  const filteredProducts = products.filter(p => showTrash ? p.deletedAt : !p.deletedAt);
 
   const editingProduct = products.find(p => p.id === editingId);
 
@@ -128,10 +131,23 @@ function ProductsTab() {
                 style={{ opacity: hasChanges ? 1 : 0.5 }}>
                 <Check size={14} /> Salvar
               </button>
-              <button onClick={() => { if(window.confirm('Excluir produto?')) { deleteProduct(editingId); setEditingId(null); setDraft(null); } }} 
-                className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
-                <Trash2 size={14} className="inline mr-1" /> Excluir
-              </button>
+              {!showTrash ? (
+                <button onClick={() => { deleteProduct(editingId); setEditingId(null); setDraft(null); }} 
+                  className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
+                  <Trash2 size={14} className="inline mr-1" /> Mover para Lixeira
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => { restoreProduct(editingId); setEditingId(null); setDraft(null); }} 
+                    className="btn-ghost text-xs ml-2">
+                    <RotateCcw size={14} className="inline mr-1" /> Restaurar
+                  </button>
+                  <button onClick={() => { permanentlyDeleteProduct(editingId); setEditingId(null); setDraft(null); }} 
+                    className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
+                    <Trash2 size={14} className="inline mr-1" /> Excluir Permanente
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -204,12 +220,21 @@ function ProductsTab() {
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Portfólio de Produtos</h2>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Gerencie suas ofertas e páginas</p>
         </div>
-        <button className="btn-accent flex items-center gap-2 text-xs" onClick={handleCreate}>
-          <Plus size={14} /> Novo Produto
-        </button>
+        <div className="flex gap-2 items-center">
+          <button
+            className="btn-ghost text-xs flex items-center gap-1 h-9 px-3"
+            style={showTrash ? { color: '#EF4444', borderColor: '#EF4444', border: '1px solid #EF4444' } : {}}
+            onClick={() => { setShowTrash(!showTrash); setEditingId(null); setDraft(null); }}
+          >
+            <Trash2 size={14} /> Lixeira
+          </button>
+          <button className="btn-accent flex items-center gap-2 text-xs h-9" onClick={handleCreate}>
+            <Plus size={14} /> Novo Produto
+          </button>
+        </div>
       </div>
 
-      {products.length === 0 ? (
+      {filteredProducts.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
           <Package size={48} style={{ color: 'var(--border-color)' }} className="mb-4" />
           <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Nenhum produto cadastrado</p>
@@ -218,7 +243,7 @@ function ProductsTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {products.map(p => (
+          {filteredProducts.map(p => (
             <div key={p.id} className="stat-card cursor-pointer group relative overflow-hidden" onClick={() => openEdit(p)}
                  style={{ padding: '20px' }}>
               <div className="absolute left-0 top-0 bottom-0 w-1 transition-all group-hover:w-1.5" style={{ background: getTicketColor(p.ticketType) }} />
@@ -277,9 +302,11 @@ function getPreview(proj, products) {
 
 // --- PROJECTIONS TAB ---
 function ProjectionsTab() {
-  const { products, projections, addProjection, updateProjection, deleteProjection, duplicateProjection } = useProductStore();
+  const { products, projections, addProjection, updateProjection, deleteProjection, restoreProjection, permanentlyDeleteProjection, duplicateProjection } = useProductStore();
   const [activeId, setActiveId] = useState(null);
+  const [showTrash, setShowTrash] = useState(false);
 
+  const filteredProjections = projections.filter(p => showTrash ? p.deletedAt : !p.deletedAt);
   const activeProj = projections.find(p => p.id === activeId);
   const activeProduct = activeProj ? products.find(p => p.id === activeProj.productId) : null;
 
@@ -345,13 +372,23 @@ function ProjectionsTab() {
       <div className="w-72 flex-shrink-0 border-r flex flex-col z-10" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-secondary)', boxShadow: '4px 0 24px rgba(0,0,0,0.2)' }}>
         <div className="p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-color)' }}>
           <span className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>Cenários</span>
-          <button className="btn-accent p-1.5 rounded-lg" onClick={handleCreate} title="Novo Cenário"><Plus size={14} /></button>
+          <div className="flex items-center gap-1">
+            <button
+              className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-all"
+              style={showTrash ? { color: '#EF4444' } : { color: 'var(--text-muted)' }}
+              onClick={() => { setShowTrash(!showTrash); setActiveId(null); }}
+              title="Lixeira"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button className="btn-accent p-1.5 rounded-lg" onClick={handleCreate} title="Novo Cenário"><Plus size={14} /></button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-          {projections.length === 0 && (
+          {filteredProjections.length === 0 && (
             <p className="text-[11px] text-center p-6" style={{ color: 'var(--text-muted)' }}>Nenhum cenário salvo.</p>
           )}
-          {projections.map(p => {
+          {filteredProjections.map(p => {
             const preview = getPreview(p, products);
             const isActive = activeId === p.id;
             
@@ -411,13 +448,27 @@ function ProjectionsTab() {
                   style={{ color: 'var(--text-primary)' }} placeholder="Nome do Cenário..." />
               </div>
               <div className="flex items-center gap-2">
-                <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold" onClick={() => duplicateProjection(activeId)}>
-                  <Copy size={14} /> Duplicar
-                </button>
-                <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold text-red-500 hover:text-red-400" 
-                  onClick={() => { if(window.confirm('Excluir cenário?')) { deleteProjection(activeId); setActiveId(null); } }}>
-                  <Trash2 size={14} /> Excluir
-                </button>
+                {!showTrash ? (
+                  <>
+                    <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold" onClick={() => duplicateProjection(activeId)}>
+                      <Copy size={14} /> Duplicar
+                    </button>
+                    <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold text-red-500 hover:text-red-400" 
+                      onClick={() => { if(window.confirm('Mover cenário para a lixeira?')) { deleteProjection(activeId); setActiveId(null); } }}>
+                      <Trash2 size={14} /> Lixeira
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold" onClick={() => { restoreProjection(activeId); setActiveId(null); }}>
+                      <RotateCcw size={14} /> Restaurar
+                    </button>
+                    <button className="btn-ghost text-xs px-4 py-2 flex items-center gap-2 font-bold text-red-500 hover:text-red-400" 
+                      onClick={() => { if(window.confirm('Excluir cenário permanentemente?')) { permanentlyDeleteProjection(activeId); setActiveId(null); } }}>
+                      <Trash2 size={14} /> Excluir
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

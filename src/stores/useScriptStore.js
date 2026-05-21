@@ -17,6 +17,7 @@ const useScriptStore = create(
           tags: data.tags || [],
           notes: data.notes || '',
           favorite: false,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
         };
         set({ scripts: [...get().scripts, script] });
@@ -32,6 +33,22 @@ const useScriptStore = create(
       },
 
       deleteScript: (id) => {
+        set({
+          scripts: get().scripts.map((s) =>
+            s.id === id ? { ...s, deletedAt: getNowInSaoPauloISO() } : s
+          ),
+        });
+      },
+
+      restoreScript: (id) => {
+        set({
+          scripts: get().scripts.map((s) =>
+            s.id === id ? { ...s, deletedAt: null } : s
+          ),
+        });
+      },
+
+      permanentlyDeleteScript: (id) => {
         set({ scripts: get().scripts.filter((s) => s.id !== id) });
       },
 

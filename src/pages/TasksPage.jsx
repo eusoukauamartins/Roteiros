@@ -365,23 +365,58 @@ export default function TasksPage() {
   const handleDragEnd = (result) => {
     if (!result.destination) return;
     const { source, destination } = result;
-    if (source.droppableId !== destination.droppableId) return;
 
-    let list = [];
-    if (source.droppableId === 'pendingTasks') list = [...pendingTasks];
-    else if (source.droppableId === 'scheduledTasks') list = [...scheduledTasks];
-    else if (source.droppableId === 'dailyTasks') list = [...dailyTasks];
-    else if (source.droppableId.startsWith('weekly-')) {
-       const day = source.droppableId.split('-')[1];
-       list = [...weeklyByDay[day]];
+    const sourceId = source.droppableId;
+    const destId = destination.droppableId;
+
+    const getList = (id) => {
+      if (id === 'pendingTasks') return [...pendingTasks];
+      if (id === 'scheduledTasks') return [...scheduledTasks];
+      if (id === 'dailyTasks') return [...dailyTasks];
+      if (id.startsWith('weekly-')) return [...weeklyByDay[id.split('-')[1]]];
+      return [];
+    };
+
+    let sourceList = getList(sourceId);
+    let destList = sourceId === destId ? sourceList : getList(destId);
+
+    if (sourceList.length === 0) return;
+
+    const [dragged] = sourceList.splice(source.index, 1);
+
+    // Apply logic for moving across columns
+    const updates = { id: dragged.id, updates: {} };
+
+    if (sourceId !== destId) {
+      if (destId === 'scheduledTasks') {
+        // Defaults to tomorrow if moved to scheduled
+        import('../utils/dateUtils').then(({ getTomorrowSP }) => {
+          const tomorrow = getTomorrowSP();
+          useTaskStore.getState().updateTask(dragged.id, { recurrence: 'única', scheduledDate: tomorrow, dueDate: '' });
+        });
+      } else if (destId === 'pendingTasks') {
+        updates.updates = { recurrence: 'única', scheduledDate: '', dueDate: '' };
+      } else if (destId === 'dailyTasks') {
+        updates.updates = { recurrence: 'diária' };
+      } else if (destId.startsWith('weekly-')) {
+        updates.updates = { recurrence: 'semanal', recurrenceDay: destId.split('-')[1] };
+      }
     }
 
-    if (list.length > 0) {
-      const [removed] = list.splice(source.index, 1);
-      list.splice(destination.index, 0, removed);
+    if (Object.keys(updates.updates).length > 0) {
+      useTaskStore.getState().updateBatch([updates]);
+    }
 
-      const updates = list.map((t, i) => ({ id: t.id, order: i }));
-      useTaskStore.getState().reorderTasks(updates);
+    destList.splice(destination.index, 0, dragged);
+
+    if (sourceId === destId) {
+      const orderUpdates = destList.map((t, i) => ({ id: t.id, order: i }));
+      useTaskStore.getState().reorderTasks(orderUpdates);
+    } else {
+      // Reorder both
+      const sourceOrderUpdates = sourceList.map((t, i) => ({ id: t.id, order: i }));
+      const destOrderUpdates = destList.map((t, i) => ({ id: t.id, order: i }));
+      useTaskStore.getState().reorderTasks([...sourceOrderUpdates, ...destOrderUpdates]);
     }
   };
 

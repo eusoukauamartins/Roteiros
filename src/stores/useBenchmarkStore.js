@@ -25,6 +25,7 @@ const useBenchmarkStore = create(
           musicRefs: data?.musicRefs || [],
           visualRefs: data?.visualRefs || [],
           observations: data?.observations || '',
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
           updatedAt: getNowInSaoPauloISO(),
         };
@@ -41,6 +42,22 @@ const useBenchmarkStore = create(
       },
 
       deleteBenchmark: (id) => {
+        set({
+          benchmarks: get().benchmarks.map((b) =>
+            b.id === id ? { ...b, deletedAt: getNowInSaoPauloISO(), updatedAt: getNowInSaoPauloISO() } : b
+          ),
+        });
+      },
+
+      restoreBenchmark: (id) => {
+        set({
+          benchmarks: get().benchmarks.map((b) =>
+            b.id === id ? { ...b, deletedAt: null, updatedAt: getNowInSaoPauloISO() } : b
+          ),
+        });
+      },
+
+      permanentlyDeleteBenchmark: (id) => {
         set({ benchmarks: get().benchmarks.filter((b) => b.id !== id) });
       },
 
@@ -51,6 +68,7 @@ const useBenchmarkStore = create(
           ...orig,
           id: nanoid(),
           headline: `${orig.headline} (Cópia)`,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
           updatedAt: getNowInSaoPauloISO(),
         };
@@ -77,6 +95,7 @@ const useBenchmarkStore = create(
           musicRefs: Array.isArray(b.musicRefs) ? b.musicRefs : [],
           visualRefs: Array.isArray(b.visualRefs) ? b.visualRefs : [],
           observations: b.observations || '',
+          deletedAt: b.deletedAt || null,
           createdAt: b.createdAt || getNowInSaoPauloISO(),
           updatedAt: b.updatedAt || getNowInSaoPauloISO(),
         }));

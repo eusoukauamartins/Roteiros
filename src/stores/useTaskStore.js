@@ -118,7 +118,7 @@ const useTaskStore = create(
         const tasks = [...get().tasks];
         reorderedTasks.forEach(({ id, order }) => {
           const idx = tasks.findIndex(t => t.id === id);
-          if (idx !== -1) tasks[idx].order = order;
+          if (idx !== -1) tasks[idx] = { ...tasks[idx], order };
         });
         set({ tasks });
       },

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Trash2, X, Edit3, Copy, Link as LinkIcon, Image as ImageIcon, Archive, Video, Bookmark } from 'lucide-react';
+import { Plus, Search, Trash2, X, Edit3, Copy, Link as LinkIcon, Image as ImageIcon, Archive, Video, Bookmark, RotateCcw } from 'lucide-react';
 import useImageStore from '../stores/useImageStore';
 import useNicheStore from '../stores/useNicheStore';
 import { format } from 'date-fns';
@@ -13,16 +13,21 @@ const ASSET_TYPES = [
 ];
 
 export default function AcervoPage() {
-  const { images, addImage, updateImage, deleteImage } = useImageStore();
+  const { images, addImage, updateImage, deleteImage, restoreImage, permanentlyDeleteImage } = useImageStore();
   const niches = useNicheStore(s => s.niches);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
   const [filterNiche, setFilterNiche] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [showTrash, setShowTrash] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
   const [form, setForm] = useState({ title: '', niche: '', tags: '', link: '', description: '', notes: '', type: 'image' });
 
   const filtered = images.filter(i => {
+    if (showTrash && !i.deletedAt) return false;
+    if (!showTrash && i.deletedAt) return false;
     if (search && !i.title?.toLowerCase().includes(search.toLowerCase()) && !i.description?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterNiche && i.niche !== filterNiche) return false;
     if (filterType && (i.type || 'image') !== filterType) return false;
@@ -62,6 +67,13 @@ export default function AcervoPage() {
           <option value="">Todos nichos</option>
           {niches.map(n=><option key={n} value={n}>{n}</option>)}
         </select>
+        <button
+          className="btn-ghost h-9 text-sm flex items-center gap-1"
+          style={showTrash ? { color: '#EF4444', borderColor: '#EF4444' } : { color: 'var(--text-muted)' }}
+          onClick={() => setShowTrash(!showTrash)}
+        >
+          <Trash2 size={14} /> Lixeira
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -91,9 +103,20 @@ export default function AcervoPage() {
                 <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>{format(new Date(i.createdAt), 'dd/MM')}</span>
               </div>
               <div className="flex gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                {i.link && <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>navigator.clipboard.writeText(i.link)}><Copy size={12} style={{color:'var(--text-muted)'}}/></button>}
-                <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>openEdit(i)}><Edit3 size={12} style={{color:'var(--text-muted)'}}/></button>
-                <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>deleteImage(i.id)}><Trash2 size={12} style={{color:'#EF4444'}}/></button>
+                {!showTrash ? (
+                  <>
+                    {i.link && <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>navigator.clipboard.writeText(i.link)}><Copy size={12} style={{color:'var(--text-muted)'}}/></button>}
+                    <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>openEdit(i)}><Edit3 size={12} style={{color:'var(--text-muted)'}}/></button>
+                    <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={()=>setItemToDelete(i)}><Trash2 size={12} style={{color:'#EF4444'}}/></button>
+                  </>
+                ) : (
+                  <>
+                    <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={() => restoreImage(i.id)}
+                      title="Restaurar"><RotateCcw size={12} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1 rounded hover:bg-[var(--surface-hover)]" onClick={() => setItemToPermanentlyDelete(i)}
+                      title="Excluir Permanentemente"><Trash2 size={12} style={{ color: '#EF4444' }} /></button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -140,6 +163,38 @@ export default function AcervoPage() {
                 <button className="btn-ghost flex-1" onClick={()=>setShowForm(false)}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSave}>{editing?'Salvar':'Criar'}</button>
               </div>
+          </div>
+        </div>
+        </div>
+      )}
+
+      {itemToDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2 text-white">Mover para a lixeira?</h3>
+            <p className="text-xs mb-6 text-gray-400">Tem certeza que deseja mover este item para a lixeira?</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { deleteImage(itemToDelete.id); setItemToDelete(null); }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToPermanentlyDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToPermanentlyDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#EF4444' }}>Excluir permanentemente?</h3>
+            <p className="text-xs mb-6 text-gray-400">Esta ação não poderá ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToPermanentlyDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { permanentlyDeleteImage(itemToPermanentlyDelete.id); setItemToPermanentlyDelete(null); }}>Excluir</button>
             </div>
           </div>
         </div>

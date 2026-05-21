@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Star, Copy, ArrowRight, Trash2, X, Edit3, Heart } from 'lucide-react';
+import { Plus, Search, Star, Copy, ArrowRight, Trash2, X, Edit3, RotateCcw } from 'lucide-react';
 import useHeadlineStore from '../stores/useHeadlineStore';
 import useVideoStore from '../stores/useVideoStore';
 import useNicheStore from '../stores/useNicheStore';
@@ -8,7 +8,7 @@ import { toast } from '../components/shared/Toast';
 import { format } from 'date-fns';
 
 export default function HeadlinesPage() {
-  const { headlines, addHeadline, updateHeadline, deleteHeadline, toggleFavorite } = useHeadlineStore();
+  const { headlines, addHeadline, updateHeadline, deleteHeadline, restoreHeadline, permanentlyDeleteHeadline, toggleFavorite } = useHeadlineStore();
   const addCard = useVideoStore(s => s.addCard);
   const niches = useNicheStore(s => s.niches);
   const navigate = useNavigate();
@@ -17,9 +17,14 @@ export default function HeadlinesPage() {
   const [search, setSearch] = useState('');
   const [filterNiche, setFilterNiche] = useState('');
   const [filterFav, setFilterFav] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
   const [form, setForm] = useState({ text: '', niche: '', tags: '', notes: '' });
 
   const filtered = headlines.filter(h => {
+    if (showTrash && !h.deletedAt) return false;
+    if (!showTrash && h.deletedAt) return false;
     if (search && !h.text.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterNiche && h.niche !== filterNiche) return false;
     if (filterFav && !h.favorite) return false;
@@ -96,6 +101,13 @@ export default function HeadlinesPage() {
         >
           <Star size={14} fill={filterFav ? '#F59E0B' : 'none'} /> Favoritas
         </button>
+        <button
+          className="btn-ghost h-9 text-sm flex items-center gap-1"
+          style={showTrash ? { color: '#EF4444', borderColor: '#EF4444' } : { color: 'var(--text-muted)' }}
+          onClick={() => setShowTrash(!showTrash)}
+        >
+          <Trash2 size={14} /> Lixeira
+        </button>
       </div>
 
       {/* List */}
@@ -121,14 +133,25 @@ export default function HeadlinesPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => copyText(h.text)}
-                  title="Copiar"><Copy size={14} style={{ color: 'var(--text-muted)' }} /></button>
-                <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => useInFlow(h)}
-                  title="Usar no Fluxo"><ArrowRight size={14} style={{ color: 'var(--text-muted)' }} /></button>
-                <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => openEdit(h)}
-                  title="Editar"><Edit3 size={14} style={{ color: 'var(--text-muted)' }} /></button>
-                <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => deleteHeadline(h.id)}
-                  title="Excluir"><Trash2 size={14} style={{ color: '#EF4444' }} /></button>
+                {!showTrash ? (
+                  <>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => copyText(h.text)}
+                      title="Copiar"><Copy size={14} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => useInFlow(h)}
+                      title="Usar no Fluxo"><ArrowRight size={14} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => openEdit(h)}
+                      title="Editar"><Edit3 size={14} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => setItemToDelete(h)}
+                      title="Mover para lixeira"><Trash2 size={14} style={{ color: '#EF4444' }} /></button>
+                  </>
+                ) : (
+                  <>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => restoreHeadline(h.id)}
+                      title="Restaurar"><RotateCcw size={14} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)]" onClick={() => setItemToPermanentlyDelete(h)}
+                      title="Excluir Permanentemente"><Trash2 size={14} style={{ color: '#EF4444' }} /></button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -181,6 +204,38 @@ export default function HeadlinesPage() {
                   {editing ? 'Salvar' : 'Criar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2 text-white">Mover para a lixeira?</h3>
+            <p className="text-xs mb-6 text-gray-400">Tem certeza que deseja mover esta headline para a lixeira?</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { deleteHeadline(itemToDelete.id); setItemToDelete(null); }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToPermanentlyDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToPermanentlyDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#EF4444' }}>Excluir permanentemente?</h3>
+            <p className="text-xs mb-6 text-gray-400">Esta ação não poderá ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToPermanentlyDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { permanentlyDeleteHeadline(itemToPermanentlyDelete.id); setItemToPermanentlyDelete(null); }}>Excluir</button>
             </div>
           </div>
         </div>

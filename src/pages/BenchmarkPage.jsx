@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   Telescope, Search, Plus, Clock, FileText,
   User, Link as LinkIcon, Image, Music, Tag, Target,
-  ChevronDown, X, Play, Copy, Trash2, Eye, Filter, ArrowRight
+  ChevronDown, X, Play, Copy, Trash2, Eye, Filter, ArrowRight, RotateCcw
 } from 'lucide-react';
 import useBenchmarkStore from '../stores/useBenchmarkStore';
 import useMusicStore from '../stores/useMusicStore';
@@ -75,7 +75,7 @@ function ReferenceRows({ items, type, onUpdate }) {
 }
 
 export default function BenchmarkPage() {
-  const { benchmarks, addBenchmark, updateBenchmark, deleteBenchmark, duplicateBenchmark } = useBenchmarkStore();
+  const { benchmarks, addBenchmark, updateBenchmark, deleteBenchmark, restoreBenchmark, permanentlyDeleteBenchmark, duplicateBenchmark } = useBenchmarkStore();
   const cards = useVideoStore(s => s.cards);
   const navigate = useNavigate();
   const [activeId, setActiveId] = useState(null);
@@ -85,6 +85,9 @@ export default function BenchmarkPage() {
   const [nicheFilter, setNicheFilter] = useState('');
   const [creatorFilter, setCreatorFilter] = useState('');
   const [ctaFilter, setCtaFilter] = useState('');
+  const [showTrash, setShowTrash] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
 
   const safeBenchmarks = Array.isArray(benchmarks) ? benchmarks : [];
 
@@ -107,6 +110,8 @@ export default function BenchmarkPage() {
   const filteredBenchmarks = useMemo(() => {
     return safeBenchmarks.filter(b => {
       if (!b) return false;
+      if (showTrash && !b.deletedAt) return false;
+      if (!showTrash && b.deletedAt) return false;
       if (nicheFilter && b.niche !== nicheFilter) return false;
       if (creatorFilter && b.creator !== creatorFilter) return false;
       if (ctaFilter && b.ctaType !== ctaFilter) return false;
@@ -120,7 +125,7 @@ export default function BenchmarkPage() {
       }
       return true;
     }).sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
-  }, [benchmarks, nicheFilter, creatorFilter, ctaFilter, searchQuery]);
+  }, [benchmarks, nicheFilter, creatorFilter, ctaFilter, searchQuery, showTrash]);
 
   return (
     <div className="h-full flex animate-fade-in bg-[var(--bg-primary)]">
@@ -167,6 +172,13 @@ export default function BenchmarkPage() {
               <option value="">CTA (Todos)</option>
               {CTA_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            <button
+              className="bg-[var(--surface-hover)] border border-[var(--border-color)] text-[10px] font-semibold h-7 px-2 rounded-lg outline-none cursor-pointer flex-shrink-0 transition-all hover:border-[var(--text-muted)] flex items-center gap-1"
+              style={showTrash ? { color: '#EF4444', borderColor: '#EF4444' } : { color: 'var(--text-primary)' }}
+              onClick={() => { setShowTrash(!showTrash); setActiveId(null); }}
+            >
+              <Trash2 size={12} /> Lixeira
+            </button>
           </div>
         </div>
 
@@ -221,13 +233,27 @@ export default function BenchmarkPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5" onClick={() => duplicateBenchmark(activeId)}>
-                  <Copy size={13} /> Duplicar Análise
-                </button>
-                <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 text-red-500 hover:text-red-400" 
-                  onClick={() => { if(window.confirm('Excluir benchmark?')) { deleteBenchmark(activeId); setActiveId(null); } }}>
-                  <Trash2 size={13} /> Excluir
-                </button>
+                {!showTrash ? (
+                  <>
+                    <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5" onClick={() => duplicateBenchmark(activeId)}>
+                      <Copy size={13} /> Duplicar Análise
+                    </button>
+                    <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 text-red-500 hover:text-red-400" 
+                      onClick={() => setItemToDelete(activeBench)}>
+                      <Trash2 size={13} /> Excluir
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5" onClick={() => { restoreBenchmark(activeId); setActiveId(null); }}>
+                      <RotateCcw size={13} /> Restaurar
+                    </button>
+                    <button className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1.5 text-red-500 hover:text-red-400" 
+                      onClick={() => setItemToPermanentlyDelete(activeBench)}>
+                      <Trash2 size={13} /> Excluir Permanentemente
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -365,6 +391,38 @@ export default function BenchmarkPage() {
           </div>
         )}
       </div>
+
+      {itemToDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2 text-white">Mover para a lixeira?</h3>
+            <p className="text-xs mb-6 text-gray-400">Tem certeza que deseja mover este benchmark para a lixeira?</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { deleteBenchmark(itemToDelete.id); setItemToDelete(null); setActiveId(null); }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToPermanentlyDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToPermanentlyDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#EF4444' }}>Excluir permanentemente?</h3>
+            <p className="text-xs mb-6 text-gray-400">Esta ação não poderá ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToPermanentlyDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { permanentlyDeleteBenchmark(itemToPermanentlyDelete.id); setItemToPermanentlyDelete(null); setActiveId(null); }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

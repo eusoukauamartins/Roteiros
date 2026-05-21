@@ -1,19 +1,24 @@
 import { useState } from 'react';
-import { Plus, Search, Trash2, X, Edit3, Copy, Music as MusicIcon, ExternalLink } from 'lucide-react';
+import { Plus, Search, Trash2, X, Edit3, Copy, Music as MusicIcon, ExternalLink, RotateCcw } from 'lucide-react';
 import useMusicStore from '../stores/useMusicStore';
 import useNicheStore from '../stores/useNicheStore';
 import { format } from 'date-fns';
 
 export default function MusicPage() {
-  const { musics, addMusic, updateMusic, deleteMusic } = useMusicStore();
+  const { musics, addMusic, updateMusic, deleteMusic, restoreMusic, permanentlyDeleteMusic } = useMusicStore();
   const niches = useNicheStore(s => s.niches);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
   const [filterNiche, setFilterNiche] = useState('');
+  const [showTrash, setShowTrash] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
   const [form, setForm] = useState({ name: '', link: '', niche: '', tags: '', notes: '' });
 
   const filtered = musics.filter(m => {
+    if (showTrash && !m.deletedAt) return false;
+    if (!showTrash && m.deletedAt) return false;
     if (search && !m.name?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterNiche && m.niche !== filterNiche) return false;
     return true;
@@ -46,6 +51,13 @@ export default function MusicPage() {
           <option value="">Todos</option>
           {niches.map(n=><option key={n} value={n}>{n}</option>)}
         </select>
+        <button
+          className="btn-ghost h-9 text-sm flex items-center gap-1"
+          style={showTrash ? { color: '#EF4444', borderColor: '#EF4444' } : { color: 'var(--text-muted)' }}
+          onClick={() => setShowTrash(!showTrash)}
+        >
+          <Trash2 size={14} /> Lixeira
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <div className="space-y-2">
@@ -64,12 +76,23 @@ export default function MusicPage() {
                 </div>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {m.link && <>
-                  <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>navigator.clipboard.writeText(m.link)} title="Copiar link"><Copy size={13} style={{color:'var(--text-muted)'}}/></button>
-                  <a href={m.link} target="_blank" rel="noopener" className="p-1.5 rounded hover:bg-[var(--surface-hover)]" title="Abrir"><ExternalLink size={13} style={{color:'var(--text-muted)'}}/></a>
-                </>}
-                <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>openEdit(m)}><Edit3 size={13} style={{color:'var(--text-muted)'}}/></button>
-                <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>deleteMusic(m.id)}><Trash2 size={13} style={{color:'#EF4444'}}/></button>
+                {!showTrash ? (
+                  <>
+                    {m.link && <>
+                      <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>navigator.clipboard.writeText(m.link)} title="Copiar link"><Copy size={13} style={{color:'var(--text-muted)'}}/></button>
+                      <a href={m.link} target="_blank" rel="noopener" className="p-1.5 rounded hover:bg-[var(--surface-hover)]" title="Abrir"><ExternalLink size={13} style={{color:'var(--text-muted)'}}/></a>
+                    </>}
+                    <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>openEdit(m)}><Edit3 size={13} style={{color:'var(--text-muted)'}}/></button>
+                    <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={()=>setItemToDelete(m)}><Trash2 size={13} style={{color:'#EF4444'}}/></button>
+                  </>
+                ) : (
+                  <>
+                    <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={() => restoreMusic(m.id)}
+                      title="Restaurar"><RotateCcw size={13} style={{ color: 'var(--text-muted)' }} /></button>
+                    <button className="p-1.5 rounded hover:bg-[var(--surface-hover)]" onClick={() => setItemToPermanentlyDelete(m)}
+                      title="Excluir Permanentemente"><Trash2 size={13} style={{ color: '#EF4444' }} /></button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -100,6 +123,38 @@ export default function MusicPage() {
                 <button className="btn-ghost flex-1" onClick={()=>setShowForm(false)}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSave}>{editing?'Salvar':'Criar'}</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2 text-white">Mover para a lixeira?</h3>
+            <p className="text-xs mb-6 text-gray-400">Tem certeza que deseja mover esta música para a lixeira?</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { deleteMusic(itemToDelete.id); setItemToDelete(null); }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToPermanentlyDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToPermanentlyDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#EF4444' }}>Excluir permanentemente?</h3>
+            <p className="text-xs mb-6 text-gray-400">Esta ação não poderá ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToPermanentlyDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={() => { permanentlyDeleteMusic(itemToPermanentlyDelete.id); setItemToPermanentlyDelete(null); }}>Excluir</button>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import useLearningStore from '../stores/useLearningStore';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
   BookOpen, Plus, Search, Star, Trash2, Edit3, GripVertical,
-  ChevronDown, ChevronRight, X
+  ChevronDown, ChevronRight, X, RotateCcw
 } from 'lucide-react';
 
 /* ── helpers ── */
@@ -29,7 +29,7 @@ const defaultLearning = () => ({
 });
 
 export default function LearningsPage() {
-  const { learnings, createLearning, updateLearning, deleteLearning, updateBatch } = useLearningStore();
+  const { learnings, createLearning, updateLearning, deleteLearning, restoreLearning, permanentlyDeleteLearning, updateBatch } = useLearningStore();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultLearning());
@@ -39,6 +39,9 @@ export default function LearningsPage() {
   const [expandedIds, setExpandedIds] = useState({});
   const [selectedTagFilter, setSelectedTagFilter] = useState('');
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
   const tagInputRef = useRef(null);
 
   /* ── tag stats ── */
@@ -62,6 +65,9 @@ export default function LearningsPage() {
   /* ── grouped learnings ── */
   const groupedLearnings = useMemo(() => {
     let filtered = [...learnings];
+    if (showTrash) filtered = filtered.filter(l => l.deletedAt);
+    else filtered = filtered.filter(l => !l.deletedAt);
+    
     if (showFavoritesOnly) filtered = filtered.filter(l => l.isFavorite);
     if (selectedTagFilter) {
       filtered = filtered.filter(l => {
@@ -93,7 +99,7 @@ export default function LearningsPage() {
       return a.localeCompare(b);
     });
     return { groups, sortedKeys };
-  }, [learnings, searchTerm, showFavoritesOnly, selectedTagFilter]);
+  }, [learnings, searchTerm, showFavoritesOnly, selectedTagFilter, showTrash]);
 
   /* ── handlers ── */
   const toggleExpanded = (id) => setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -107,9 +113,8 @@ export default function LearningsPage() {
 
   const handleDelete = (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Excluir este aprendizado permanentemente?')) {
-      deleteLearning(id);
-    }
+    deleteLearning(id);
+    setItemToDelete(null);
   };
 
   const toggleFavorite = (id, current, e) => {
@@ -207,6 +212,17 @@ export default function LearningsPage() {
           onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
         >
           <Star size={14} fill={showFavoritesOnly ? 'currentColor' : 'none'} /> Favoritos
+        </button>
+        <button
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+          style={{
+            background: showTrash ? 'rgba(239,68,68,0.12)' : 'var(--surface)',
+            color: showTrash ? '#EF4444' : 'var(--text-muted)',
+            border: showTrash ? '1px solid rgba(239,68,68,0.4)' : '1px solid var(--border-color)',
+          }}
+          onClick={() => setShowTrash(!showTrash)}
+        >
+          <Trash2 size={14} /> Lixeira
         </button>
       </div>
 
@@ -324,21 +340,36 @@ export default function LearningsPage() {
 
                                       {/* Actions */}
                                       <div className="flex flex-col gap-1.5 items-center" onClick={e => e.stopPropagation()}>
-                                        <button
-                                          className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
-                                          onClick={(e) => toggleFavorite(item.id, item.isFavorite, e)}
-                                          style={{ color: item.isFavorite ? '#F59E0B' : 'var(--text-muted)' }}
-                                        >
-                                          <Star size={14} fill={item.isFavorite ? 'currentColor' : 'none'} />
-                                        </button>
-                                        {isExpanded && (
+                                        {!showTrash ? (
+                                          <>
+                                            <button
+                                              className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
+                                              onClick={(e) => toggleFavorite(item.id, item.isFavorite, e)}
+                                              style={{ color: item.isFavorite ? '#F59E0B' : 'var(--text-muted)' }}
+                                            >
+                                              <Star size={14} fill={item.isFavorite ? 'currentColor' : 'none'} />
+                                            </button>
+                                            {isExpanded && (
+                                              <>
+                                                <button className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
+                                                  onClick={(e) => handleEdit(item, e)}>
+                                                  <Edit3 size={13} style={{ color: 'var(--text-muted)' }} />
+                                                </button>
+                                                <button className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
+                                                  onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}>
+                                                  <Trash2 size={13} style={{ color: '#EF4444' }} />
+                                                </button>
+                                              </>
+                                            )}
+                                          </>
+                                        ) : (
                                           <>
                                             <button className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
-                                              onClick={(e) => handleEdit(item, e)}>
-                                              <Edit3 size={13} style={{ color: 'var(--text-muted)' }} />
+                                              onClick={(e) => { e.stopPropagation(); restoreLearning(item.id); }}>
+                                              <RotateCcw size={13} style={{ color: 'var(--text-muted)' }} />
                                             </button>
                                             <button className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors"
-                                              onClick={(e) => handleDelete(item.id, e)}>
+                                              onClick={(e) => { e.stopPropagation(); setItemToPermanentlyDelete(item); }}>
                                               <Trash2 size={13} style={{ color: '#EF4444' }} />
                                             </button>
                                           </>
@@ -483,6 +514,38 @@ export default function LearningsPage() {
                   {editing ? 'Salvar Insight' : 'Adicionar Insight'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2 text-white">Mover para a lixeira?</h3>
+            <p className="text-xs mb-6 text-gray-400">Tem certeza que deseja mover este aprendizado para a lixeira?</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={(e) => handleDelete(itemToDelete.id, e)}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemToPermanentlyDelete && (
+        <div className="overlay animate-fade-in" onClick={() => setItemToPermanentlyDelete(null)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 z-50 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: '#EF4444' }}>Excluir permanentemente?</h3>
+            <p className="text-xs mb-6 text-gray-400">Esta ação não poderá ser desfeita.</p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setItemToPermanentlyDelete(null)}>Cancelar</button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={(e) => { e.stopPropagation(); permanentlyDeleteLearning(itemToPermanentlyDelete.id); setItemToPermanentlyDelete(null); }}>Excluir</button>
             </div>
           </div>
         </div>

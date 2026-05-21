@@ -17,6 +17,8 @@ const useImageStore = create(
           link: data.link || '',
           description: data.description || '',
           notes: data.notes || '',
+          type: data.type || 'image',
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
         };
         set({ images: [...get().images, image] });
@@ -32,6 +34,22 @@ const useImageStore = create(
       },
 
       deleteImage: (id) => {
+        set({
+          images: get().images.map((i) =>
+            i.id === id ? { ...i, deletedAt: getNowInSaoPauloISO() } : i
+          ),
+        });
+      },
+
+      restoreImage: (id) => {
+        set({
+          images: get().images.map((i) =>
+            i.id === id ? { ...i, deletedAt: null } : i
+          ),
+        });
+      },
+
+      permanentlyDeleteImage: (id) => {
         set({ images: get().images.filter((i) => i.id !== id) });
       },
 

@@ -24,6 +24,7 @@ const useLearningStore = create(
           isFavorite: data.isFavorite || false,
           date: data.date || toLocalISODate(new Date()),
           order: data.order ?? get().learnings.length,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
         };
         set({ learnings: [...get().learnings, item] });
@@ -39,6 +40,22 @@ const useLearningStore = create(
       },
 
       deleteLearning: (id) => {
+        set({
+          learnings: get().learnings.map((l) =>
+            l.id === id ? { ...l, deletedAt: getNowInSaoPauloISO() } : l
+          ),
+        });
+      },
+
+      restoreLearning: (id) => {
+        set({
+          learnings: get().learnings.map((l) =>
+            l.id === id ? { ...l, deletedAt: null } : l
+          ),
+        });
+      },
+
+      permanentlyDeleteLearning: (id) => {
         set({ learnings: get().learnings.filter((l) => l.id !== id) });
       },
 

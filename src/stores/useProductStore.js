@@ -21,6 +21,7 @@ const useProductStore = create(
           notes: data?.notes || '',
           cta: data?.cta || '',
           links: data?.links || [],
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
           updatedAt: getNowInSaoPauloISO(),
         };
@@ -33,6 +34,16 @@ const useProductStore = create(
         });
       },
       deleteProduct: (id) => {
+        set({
+          products: get().products.map(p => p.id === id ? { ...p, deletedAt: getNowInSaoPauloISO(), updatedAt: getNowInSaoPauloISO() } : p)
+        });
+      },
+      restoreProduct: (id) => {
+        set({
+          products: get().products.map(p => p.id === id ? { ...p, deletedAt: null, updatedAt: getNowInSaoPauloISO() } : p)
+        });
+      },
+      permanentlyDeleteProduct: (id) => {
         set({ products: get().products.filter(p => p.id !== id) });
       },
 
@@ -55,6 +66,7 @@ const useProductStore = create(
           cpa: data?.cpa || 0,
           commissions: data?.commissions || 0,
           percentageCosts: data?.percentageCosts || 0,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
           updatedAt: getNowInSaoPauloISO(),
         };
@@ -67,6 +79,16 @@ const useProductStore = create(
         });
       },
       deleteProjection: (id) => {
+        set({
+          projections: get().projections.map(p => p.id === id ? { ...p, deletedAt: getNowInSaoPauloISO(), updatedAt: getNowInSaoPauloISO() } : p)
+        });
+      },
+      restoreProjection: (id) => {
+        set({
+          projections: get().projections.map(p => p.id === id ? { ...p, deletedAt: null, updatedAt: getNowInSaoPauloISO() } : p)
+        });
+      },
+      permanentlyDeleteProjection: (id) => {
         set({ projections: get().projections.filter(p => p.id !== id) });
       },
       duplicateProjection: (id) => {
@@ -76,6 +98,7 @@ const useProductStore = create(
           ...orig,
           id: nanoid(),
           name: `${orig.name} (cópia)`,
+          deletedAt: null,
           createdAt: getNowInSaoPauloISO(),
           updatedAt: getNowInSaoPauloISO(),
         };
@@ -95,6 +118,7 @@ const useProductStore = create(
           notes: p.notes || '',
           cta: p.cta || '',
           links: Array.isArray(p.links) ? p.links : [],
+          deletedAt: p.deletedAt || null,
           createdAt: p.createdAt || getNowInSaoPauloISO(),
           updatedAt: p.updatedAt || getNowInSaoPauloISO(),
         }));
@@ -116,6 +140,7 @@ const useProductStore = create(
           cpa: Number(p.cpa) || 0,
           commissions: Number(p.commissions) || 0,
           percentageCosts: Number(p.percentageCosts) || 0,
+          deletedAt: p.deletedAt || null,
           createdAt: p.createdAt || getNowInSaoPauloISO(),
           updatedAt: p.updatedAt || getNowInSaoPauloISO(),
         }));
