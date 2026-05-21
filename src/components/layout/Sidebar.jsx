@@ -48,6 +48,7 @@ const navGroups = [
     items: [
       { path: '/benchmark', label: 'Benchmark', icon: Telescope },
       { path: '/learnings', label: 'Aprendizados', icon: BookOpen },
+      { path: '/postados', label: 'Postados', icon: CheckCircle2 },
     ],
   },
   {

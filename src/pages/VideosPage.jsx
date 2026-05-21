@@ -255,6 +255,9 @@ function VideoEditorModal({ card, onClose }) {
   const benchmarks = useBenchmarkStore(s => s.benchmarks);
   const headlines = useHeadlineStore(s => s.headlines);
 
+  // Snapshot do card original para restaurar no Cancel
+  const originalSnapshot = useRef(JSON.parse(JSON.stringify(card)));
+
   const [form, setForm] = useState(() => ({
     ...card,
     music: migrateMusic(card.music),
@@ -267,36 +270,17 @@ function VideoEditorModal({ card, onClose }) {
   }));
   const [focusTarget, setFocusTarget] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [lastSaved, setLastSaved] = useState(null); // Date | null
-  const saveTimer = useRef(null);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  const update = useCallback((f, v) => setForm(p => ({ ...p, [f]: v })), []);
+  const update = useCallback((f, v) => {
+    setForm(p => ({ ...p, [f]: v }));
+    setHasChanges(true);
+  }, []);
 
   const hlChars = (form.headline||'').length, hlWords = countWords(form.headline);
   const scChars = (form.script||'').length, scWords = countWords(form.script);
 
-  // ===== AUTO-SAVE com debounce =====
-  useEffect(() => {
-    // Pula primeira renderização — só salva quando o form realmente muda
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      const saveData = { ...form };
-      if (form.productionLinks?.length > 0) {
-        const ext = form.productionLinks.find(l => l.type?.toLowerCase().includes('externo'));
-        const rec = form.productionLinks.find(l => l.type?.toLowerCase().includes('gravad'));
-        saveData.externalLink = ext?.link || form.externalLink || '';
-        saveData.recordedFilesLink = rec?.link || form.recordedFilesLink || '';
-      }
-      updateCard(card.id, saveData);
-      setLastSaved(new Date());
-    }, 800);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form]);
-
   const handleSave = () => {
-    // Força save imediato ao clicar e fecha
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     const saveData = { ...form };
     if (form.productionLinks?.length > 0) {
       const ext = form.productionLinks.find(l => l.type?.toLowerCase().includes('externo'));
@@ -305,11 +289,17 @@ function VideoEditorModal({ card, onClose }) {
       saveData.recordedFilesLink = rec?.link || form.recordedFilesLink || '';
     }
     updateCard(card.id, saveData);
+    setHasChanges(false);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    // Restaura o card ao estado original (snapshot)
+    updateCard(card.id, originalSnapshot.current);
     onClose();
   };
 
   const handleMarkPosted = () => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     updateCard(card.id, form);
     markAsPosted(card.id);
     onClose();
@@ -319,7 +309,7 @@ function VideoEditorModal({ card, onClose }) {
     const blob = new Blob([JSON.stringify(form, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url;
-    a.download = `video-${form.headline?.slice(0,30) || card.id}.json`;
+    a.download = `card-${form.headline?.slice(0,30) || card.id}.json`;
     a.click(); URL.revokeObjectURL(url);
   };
 
@@ -369,24 +359,22 @@ function VideoEditorModal({ card, onClose }) {
                 </h3>
                 <p className="text-[11px] flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                   <span>Criado em {formatDateBR(card.createdAt, true)}</span>
-                  {lastSaved && (
-                    <span className="flex items-center gap-1" style={{ color: '#10B981' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-                      Salvo {lastSaved.toLocaleTimeString('pt-BR')}
+                  {hasChanges && (
+                    <span className="flex items-center gap-1" style={{ color: '#F59E0B' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }} />
+                      Alterações não salvas
                     </span>
                   )}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {form.status === 'editing' && (
-                <button onClick={handleMarkPosted}
-                  className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold transition-all"
-                  style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98144' }}
-                  title="Marca como postado e move para o arquivo">
-                  <CheckCircle2 size={12} /> Marcar como postado
-                </button>
-              )}
+              <button onClick={handleMarkPosted}
+                className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold transition-all"
+                style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98144' }}
+                title="Marca como postado e move para o arquivo">
+                <CheckCircle2 size={12} /> Marcar como postado
+              </button>
               <button onClick={() => { duplicateCard(card.id); onClose(); }}
                 className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1"><Copy size={12} /> Duplicar</button>
               <button onClick={() => { moveToNext(card.id); onClose(); }}
@@ -607,8 +595,8 @@ function VideoEditorModal({ card, onClose }) {
               <Trash2 size={14} /> Excluir
             </button>
             <div className="flex items-center gap-2">
-              <button className="btn-ghost flex items-center gap-2 text-xs" onClick={handleExport}><Download size={14} /> Exportar</button>
-              <button className="btn-ghost text-xs" onClick={onClose}>Cancelar</button>
+              <button className="btn-ghost flex items-center gap-2 text-xs" onClick={handleExport}><Download size={14} /> Exportar este card</button>
+              <button className="btn-ghost text-xs" onClick={handleCancel}>Cancelar</button>
               <button className="btn-accent flex items-center gap-2" onClick={handleSave}><Save size={14} /> Salvar Vídeo</button>
             </div>
           </div>
