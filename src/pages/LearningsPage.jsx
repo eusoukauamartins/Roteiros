@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import useLearningStore from '../stores/useLearningStore';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import {
@@ -32,6 +32,8 @@ export default function LearningsPage() {
   const { learnings, createLearning, updateLearning, deleteLearning, restoreLearning, permanentlyDeleteLearning, updateBatch } = useLearningStore();
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [originalItem, setOriginalItem] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [form, setForm] = useState(defaultLearning());
   const [tagInput, setTagInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,12 +106,64 @@ export default function LearningsPage() {
   /* ── handlers ── */
   const toggleExpanded = (id) => setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const openCreate = () => {
+    const data = defaultLearning();
+    setForm(data);
+    setOriginalItem(data);
+    setEditing(null);
+    setShowModal(true);
+  };
+
   const handleEdit = (item, e) => {
     e.stopPropagation();
-    setForm({ ...defaultLearning(), ...item });
+    const data = { ...defaultLearning(), ...item };
+    setForm(data);
+    setOriginalItem(data);
     setEditing(item.id);
     setShowModal(true);
   };
+
+  const hasChanges = () => {
+    if (!originalItem) return false;
+    return JSON.stringify(form) !== JSON.stringify(originalItem);
+  };
+
+  const handleCloseWithSave = () => {
+    if (!editing && !form.content.trim() && form.tags.length === 0 && !form.source.trim()) {
+      setShowModal(false);
+      setEditing(null);
+      setOriginalItem(null);
+      return;
+    }
+    handleSubmit();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges()) {
+      setShowCancelConfirm(true);
+    } else {
+      setShowModal(false);
+      setEditing(null);
+      setOriginalItem(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setShowCancelConfirm(false);
+    setShowModal(false);
+    setEditing(null);
+    setOriginalItem(null);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showModal && !showCancelConfirm && !itemToDelete && !itemToPermanentlyDelete) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModal, showCancelConfirm, itemToDelete, itemToPermanentlyDelete, form, editing]);
 
   const handleDelete = (id, e) => {
     e.stopPropagation();
@@ -148,6 +202,7 @@ export default function LearningsPage() {
     }
     setShowModal(false);
     setEditing(null);
+    setOriginalItem(null);
     setForm(defaultLearning());
   };
 
@@ -175,7 +230,7 @@ export default function LearningsPage() {
             Biblioteca de insights, referências e conhecimento estruturado
           </p>
         </div>
-        <button className="btn-accent flex items-center gap-2" onClick={() => { setForm(defaultLearning()); setEditing(null); setShowModal(true); }}>
+        <button className="btn-accent flex items-center gap-2" onClick={openCreate}>
           <Plus size={16} /> Novo Insight
         </button>
       </div>
@@ -235,7 +290,7 @@ export default function LearningsPage() {
             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)', opacity: 0.6 }}>
               Transforme conteúdos consumidos em blocos de conhecimento estruturados.
             </p>
-            <button className="btn-accent mt-4 text-sm" onClick={() => setShowModal(true)}>
+            <button className="btn-accent mt-4 text-sm" onClick={openCreate}>
               <Plus size={14} /> Novo Insight
             </button>
           </div>
@@ -395,14 +450,14 @@ export default function LearningsPage() {
 
       {/* ═══ MODAL ═══ */}
       {showModal && (
-        <div className="overlay animate-fade-in" onClick={() => setShowModal(false)}>
+        <div className="overlay animate-fade-in" onClick={handleCloseWithSave}>
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-2xl p-6 z-50 animate-scale-in glass-strong"
             style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {editing ? 'Editar Insight' : 'Novo Insight Estratégico'}
               </h2>
-              <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
+              <button onClick={handleCloseWithSave} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div className="space-y-4">
               {/* Conteúdo */}
@@ -454,7 +509,7 @@ export default function LearningsPage() {
                       style={{ background: 'transparent', border: 'none', outline: 'none', color: 'inherit', width: '100%', minHeight: '24px' }}
                     />
                     {showTagSuggestions && tagInput.trim() && (
-                      <div className="absolute top-full left-0 mt-1 rounded-lg overflow-hidden z-50"
+                      <div className="absolute top-full left-0 mt-1 rounded-lg overflow-hidden z-[60]"
                         style={{
                           minWidth: '200px', background: 'var(--bg-secondary, var(--surface))',
                           border: '1px solid var(--border-color)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
@@ -509,11 +564,34 @@ export default function LearningsPage() {
               </div>
               {/* Actions */}
               <div className="flex gap-3 pt-2">
-                <button className="btn-ghost flex-1" onClick={() => setShowModal(false)}>Cancelar</button>
+                <button className="btn-ghost flex-1" onClick={handleCancelClick}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSubmit}>
                   {editing ? 'Salvar Insight' : 'Adicionar Insight'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CANCEL CONFIRM MODAL ═══ */}
+      {showCancelConfirm && (
+        <div className="overlay animate-fade-in z-[60]" onClick={() => setShowCancelConfirm(false)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+            <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+              Tem certeza que deseja cancelar as alterações?
+            </p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                Continuar editando
+              </button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={handleDiscardChanges}>
+                Descartar alterações
+              </button>
             </div>
           </div>
         </div>

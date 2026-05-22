@@ -249,7 +249,7 @@ const STRUCTURE_TAGS = {
 
 /* ===== VIDEO EDITOR MODAL ===== */
 function VideoEditorModal({ card, onClose }) {
-  const { updateCard, deleteCard, duplicateCard, moveToNext, markAsPosted } = useVideoStore();
+  const { updateCard, deleteCard, permanentlyDeleteCard, duplicateCard, moveToNext, markAsPosted } = useVideoStore();
   const niches = useNicheStore(s => s.niches);
   const products = useProductStore(s => s.products);
   const benchmarks = useBenchmarkStore(s => s.benchmarks);
@@ -293,11 +293,51 @@ function VideoEditorModal({ card, onClose }) {
     onClose();
   };
 
-  const handleCancel = () => {
-    // Restaura o card ao estado original (snapshot)
-    updateCard(card.id, originalSnapshot.current);
+  const isNewItem = !originalSnapshot.current.headline && !originalSnapshot.current.script && !originalSnapshot.current.niche;
+
+  const handleCloseWithSave = () => {
+    if (isNewItem && !hasChanges) {
+      permanentlyDeleteCard(card.id);
+      onClose();
+      return;
+    }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      if (isNewItem) {
+        permanentlyDeleteCard(card.id);
+      } else {
+        updateCard(card.id, originalSnapshot.current);
+      }
+      onClose();
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    if (isNewItem) {
+      permanentlyDeleteCard(card.id);
+    } else {
+      updateCard(card.id, originalSnapshot.current);
+    }
+    setShowCancelConfirm(false);
     onClose();
   };
+
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !showCancelConfirm && !showDeleteConfirm && !focusTarget) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCancelConfirm, showDeleteConfirm, focusTarget, hasChanges, isNewItem, form]);
 
   const handleMarkPosted = () => {
     updateCard(card.id, form);
@@ -338,8 +378,8 @@ function VideoEditorModal({ card, onClose }) {
 
   return (
     <>
-      <div className="overlay" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8" onClick={onClose}>
+      <div className="overlay" onClick={handleCloseWithSave} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8" onClick={handleCloseWithSave}>
         <div className="relative w-full max-w-4xl max-h-[92vh] rounded-2xl overflow-hidden flex flex-col animate-slide-up"
           style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
             boxShadow: '0 32px 100px rgba(0,0,0,0.6), 0 0 60px var(--glow)' }}
@@ -379,10 +419,33 @@ function VideoEditorModal({ card, onClose }) {
                 className="btn-ghost text-xs px-3 py-1.5 flex items-center gap-1"><Copy size={12} /> Duplicar</button>
               <button onClick={() => { moveToNext(card.id); onClose(); }}
                 className="btn-accent text-xs px-3 py-1.5 flex items-center gap-1"><ArrowRight size={12} /> Próxima etapa</button>
-              <button onClick={onClose} className="ml-2 p-1.5 rounded-lg transition-colors hover:bg-[var(--surface-hover)]"
+              <button onClick={handleCancelClick} className="ml-2 p-1.5 rounded-lg transition-colors hover:bg-[var(--surface-hover)]"
                 style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
             </div>
           </div>
+
+          {/* CANCEL CONFIRM MODAL */}
+          {showCancelConfirm && (
+            <div className="overlay animate-fade-in z-[60]" onClick={() => setShowCancelConfirm(false)}>
+              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 animate-scale-in glass-strong"
+                onClick={e => e.stopPropagation()}>
+                <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+                <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+                  Tem certeza que deseja cancelar as alterações?
+                </p>
+                <div className="flex gap-3">
+                  <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                    Continuar editando
+                  </button>
+                  <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                      style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                      onClick={handleDiscardChanges}>
+                    Descartar alterações
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* BODY */}
           <div className="flex-1 overflow-y-auto">
@@ -596,7 +659,7 @@ function VideoEditorModal({ card, onClose }) {
             </button>
             <div className="flex items-center gap-2">
               <button className="btn-ghost flex items-center gap-2 text-xs" onClick={handleExport}><Download size={14} /> Exportar este card</button>
-              <button className="btn-ghost text-xs" onClick={handleCancel}>Cancelar</button>
+              <button className="btn-ghost text-xs" onClick={handleCancelClick}>Cancelar</button>
               <button className="btn-accent flex items-center gap-2" onClick={handleSave}><Save size={14} /> Salvar Vídeo</button>
             </div>
           </div>

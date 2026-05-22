@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Telescope, Search, Plus, Clock, FileText,
   User, Link as LinkIcon, Image, Music, Tag, Target,
-  ChevronDown, X, Play, Copy, Trash2, Eye, Filter, ArrowRight, RotateCcw
+  ChevronDown, X, Play, Copy, Trash2, Eye, Filter, ArrowRight, RotateCcw, AlertCircle
 } from 'lucide-react';
 import useBenchmarkStore from '../stores/useBenchmarkStore';
 import useMusicStore from '../stores/useMusicStore';
@@ -89,18 +89,77 @@ export default function BenchmarkPage() {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [itemToPermanentlyDelete, setItemToPermanentlyDelete] = useState(null);
 
-  const safeBenchmarks = Array.isArray(benchmarks) ? benchmarks : [];
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const snapshotRef = useRef(null);
 
+  const safeBenchmarks = Array.isArray(benchmarks) ? benchmarks : [];
   const activeBench = safeBenchmarks.find(b => b?.id === activeId);
 
+  useEffect(() => {
+    if (activeId) {
+      const bench = safeBenchmarks.find(b => b.id === activeId);
+      if (bench) {
+        snapshotRef.current = JSON.parse(JSON.stringify(bench));
+        setHasChanges(false);
+      }
+    } else {
+      snapshotRef.current = null;
+      setHasChanges(false);
+      setShowCancelConfirm(false);
+    }
+  }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCreate = () => {
-    const b = addBenchmark({ headline: 'Nova Análise de Benchmark' });
+    const b = addBenchmark({ headline: '' });
     setActiveId(b.id);
   };
 
   const updateActive = (updates) => {
-    if (activeId) updateBenchmark(activeId, updates);
+    if (activeId) {
+      setHasChanges(true);
+      updateBenchmark(activeId, updates);
+    }
   };
+
+  const handleCloseWithSave = () => {
+    if (!hasChanges && activeBench && !activeBench.headline && !activeBench.script && !activeBench.niche && !activeBench.creator) {
+      // Empty new item, discard
+      permanentlyDeleteBenchmark(activeId);
+    }
+    setHasChanges(false);
+    setActiveId(null);
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      if (activeBench && !activeBench.headline && !activeBench.script && !activeBench.niche && !activeBench.creator) {
+        permanentlyDeleteBenchmark(activeId);
+      }
+      setActiveId(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    if (snapshotRef.current && activeId) {
+      updateBenchmark(activeId, snapshotRef.current);
+    }
+    setHasChanges(false);
+    setShowCancelConfirm(false);
+    setActiveId(null);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && activeId && !showCancelConfirm && !itemToDelete && !itemToPermanentlyDelete) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeId, showCancelConfirm, itemToDelete, itemToPermanentlyDelete, hasChanges, activeBench]);
 
   // Extract unique lists for filters safely
   const creators = [...new Set(safeBenchmarks.map(b => b?.creator).filter(Boolean))].sort();
@@ -254,6 +313,9 @@ export default function BenchmarkPage() {
                     </button>
                   </>
                 )}
+                <button className="btn-ghost p-2 rounded-lg ml-2" onClick={handleCloseWithSave}>
+                  <X size={18} />
+                </button>
               </div>
             </div>
 
@@ -422,6 +484,39 @@ export default function BenchmarkPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cancel Confirmation */}
+      {showCancelConfirm && (
+        <>
+          <div className="overlay animate-fade-in" style={{ zIndex: 60 }} onClick={() => setShowCancelConfirm(false)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowCancelConfirm(false)}>
+            <div className="w-full max-w-sm rounded-2xl overflow-hidden animate-scale-in"
+              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ background: 'rgba(245,158,11,0.12)' }}>
+                  <AlertCircle size={22} style={{ color: '#F59E0B' }} />
+                </div>
+                <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                  Descartar alterações?
+                </h3>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  Você fez mudanças nesta análise. Se sair agora, elas serão perdidas.
+                </p>
+              </div>
+              <div className="flex gap-3 px-6 pb-6">
+                <button className="btn-ghost flex-1 text-sm py-2.5" onClick={() => setShowCancelConfirm(false)}>Continuar editando</button>
+                <button className="flex-1 text-sm py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}
+                  onClick={handleDiscardChanges}>
+                  <X size={14} /> Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

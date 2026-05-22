@@ -173,6 +173,8 @@ export default function PostadosPage() {
   const [activeId, setActiveId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showUnarchiveMenu, setShowUnarchiveMenu] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   /* ── Draft editing state ── */
   const [draft, setDraft] = useState(null);
@@ -204,7 +206,27 @@ export default function PostadosPage() {
     // Reset action UI when modal opens/closes
     setShowDeleteConfirm(false);
     setShowUnarchiveMenu(false);
+    setShowCancelConfirm(false);
+    setHasChanges(false);
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && activeId && !showCancelConfirm && !showDeleteConfirm && !showUnarchiveMenu) {
+        if (!hasChanges) {
+          setActiveId(null);
+        } else {
+          // Save and close
+          if (draft && activeId) {
+            updateCard(activeId, draft);
+          }
+          setActiveId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeId, showCancelConfirm, showDeleteConfirm, showUnarchiveMenu, hasChanges, draft, updateCard]);
 
   const archived = useMemo(() => cards.filter(c => c.archived), [cards]);
 
@@ -247,10 +269,12 @@ export default function PostadosPage() {
 
   /* ── Draft update helpers (local only, not store) ── */
   const updateDraft = useCallback((field, value) => {
+    setHasChanges(true);
     setDraft(prev => prev ? { ...prev, [field]: value } : prev);
   }, []);
 
   const updateMetric = useCallback((field, value) => {
+    setHasChanges(true);
     setDraft(prev => {
       if (!prev) return prev;
       return { ...prev, metrics: { ...(prev.metrics || {}), [field]: value === '' ? '' : Number(value) || 0 } };
@@ -258,6 +282,7 @@ export default function PostadosPage() {
   }, []);
 
   const updateAnalysis = useCallback((field, value) => {
+    setHasChanges(true);
     setDraft(prev => {
       if (!prev) return prev;
       return { ...prev, analysis: { ...(prev.analysis || {}), [field]: value } };
@@ -265,6 +290,7 @@ export default function PostadosPage() {
   }, []);
 
   const updatePatterns = useCallback((field, value) => {
+    setHasChanges(true);
     setDraft(prev => {
       if (!prev) return prev;
       return { ...prev, patterns: { ...(prev.patterns || {}), [field]: value } };
@@ -272,6 +298,7 @@ export default function PostadosPage() {
   }, []);
 
   const togglePatternTag = useCallback((field, tag) => {
+    setHasChanges(true);
     setDraft(prev => {
       if (!prev) return prev;
       const current = (prev.patterns || {})[field] || [];
@@ -286,14 +313,33 @@ export default function PostadosPage() {
   const handleSave = () => {
     if (!draft || !activeId) return;
     updateCard(activeId, draft);
+    setHasChanges(false);
     setActiveId(null);
   };
 
-  const handleCancel = () => {
+  const handleCloseWithSave = () => {
+    if (!hasChanges) {
+      setActiveId(null);
+      return;
+    }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      setActiveId(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
     // Restore original snapshot
     if (snapshotRef.current && activeId) {
       updateCard(activeId, snapshotRef.current);
     }
+    setHasChanges(false);
+    setShowCancelConfirm(false);
     setActiveId(null);
   };
 
@@ -485,7 +531,7 @@ export default function PostadosPage() {
       {/* ══════ ANALYSIS MODAL ══════ */}
       <ModalErrorBoundary onReset={() => setActiveId(null)}>
       {draft && (
-        <div className="overlay animate-fade-in" onClick={() => setActiveId(null)}>
+        <div className="overlay animate-fade-in" onClick={handleCloseWithSave}>
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl rounded-2xl p-0 z-50 animate-scale-in glass-strong max-h-[92vh] overflow-hidden flex flex-col"
             onClick={e => e.stopPropagation()}>
 
@@ -501,7 +547,7 @@ export default function PostadosPage() {
                   {draft.platform && <> · {draft.platform}</>}
                 </p>
               </div>
-              <button onClick={() => setActiveId(null)} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }}>
+              <button onClick={handleCloseWithSave} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]" style={{ color: 'var(--text-muted)' }}>
                 <X size={18} />
               </button>
             </div>
@@ -696,7 +742,7 @@ export default function PostadosPage() {
 
               {/* RIGHT: Primary actions */}
               <div className="flex items-center gap-2">
-                <button className="btn-ghost text-xs" onClick={handleCancel}>Cancelar</button>
+                <button className="btn-ghost text-xs" onClick={handleCancelClick}>Cancelar</button>
                 <button className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
                   style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
                   onClick={() => setShowDeleteConfirm(true)}>
@@ -738,6 +784,39 @@ export default function PostadosPage() {
                   style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
                   onClick={handleDelete}>
                   <Trash2 size={14} /> Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Cancel Confirmation */}
+      {showCancelConfirm && (
+        <>
+          <div className="overlay animate-fade-in" style={{ zIndex: 60 }} onClick={() => setShowCancelConfirm(false)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" onClick={() => setShowCancelConfirm(false)}>
+            <div className="w-full max-w-sm rounded-2xl overflow-hidden animate-scale-in"
+              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', boxShadow: '0 32px 80px rgba(0,0,0,0.6)' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+                  style={{ background: 'rgba(245,158,11,0.12)' }}>
+                  <AlertCircle size={22} style={{ color: '#F59E0B' }} />
+                </div>
+                <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                  Descartar alterações?
+                </h3>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  Você fez mudanças neste postado. Se sair agora, elas serão perdidas.
+                </p>
+              </div>
+              <div className="flex gap-3 px-6 pb-6">
+                <button className="btn-ghost flex-1 text-sm py-2.5" onClick={() => setShowCancelConfirm(false)}>Continuar editando</button>
+                <button className="flex-1 text-sm py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}
+                  onClick={handleDiscardChanges}>
+                  <X size={14} /> Descartar
                 </button>
               </div>
             </div>

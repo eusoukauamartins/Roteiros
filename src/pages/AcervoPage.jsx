@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, X, Edit3, Copy, Link as LinkIcon, Image as ImageIcon, Archive, Video, Bookmark, RotateCcw } from 'lucide-react';
 import useImageStore from '../stores/useImageStore';
 import useNicheStore from '../stores/useNicheStore';
@@ -17,6 +17,8 @@ export default function AcervoPage() {
   const niches = useNicheStore(s => s.niches);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [originalItem, setOriginalItem] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [search, setSearch] = useState('');
   const [filterNiche, setFilterNiche] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -34,13 +36,70 @@ export default function AcervoPage() {
     return true;
   }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  const openCreate = () => { setForm({ title: '', niche: '', tags: '', link: '', description: '', notes: '', type: 'image' }); setEditing(null); setShowForm(true); };
-  const openEdit = (i) => { setForm({ title: i.title, niche: i.niche, tags: (i.tags||[]).join(', '), link: i.link, description: i.description, notes: i.notes||'', type: i.type || 'image' }); setEditing(i.id); setShowForm(true); };
+  const openCreate = () => {
+    const data = { title: '', niche: '', tags: '', link: '', description: '', notes: '', type: 'image' };
+    setForm(data);
+    setOriginalItem(data);
+    setEditing(null);
+    setShowForm(true);
+  };
+  
+  const openEdit = (i) => {
+    const data = { title: i.title, niche: i.niche, tags: (i.tags||[]).join(', '), link: i.link, description: i.description, notes: i.notes||'', type: i.type || 'image' };
+    setForm(data);
+    setOriginalItem(data);
+    setEditing(i.id);
+    setShowForm(true);
+  };
+
+  const hasChanges = () => {
+    if (!originalItem) return false;
+    return JSON.stringify(form) !== JSON.stringify(originalItem);
+  };
+
+  const handleCloseWithSave = () => {
+    if (!editing && !form.title.trim() && !form.link.trim() && !form.description.trim() && !form.tags.trim()) {
+      setShowForm(false);
+      setEditing(null);
+      setOriginalItem(null);
+      return;
+    }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges()) {
+      setShowCancelConfirm(true);
+    } else {
+      setShowForm(false);
+      setEditing(null);
+      setOriginalItem(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setShowCancelConfirm(false);
+    setShowForm(false);
+    setEditing(null);
+    setOriginalItem(null);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showForm && !showCancelConfirm && !itemToDelete && !itemToPermanentlyDelete) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForm, showCancelConfirm, itemToDelete, itemToPermanentlyDelete, form, editing]);
 
   const handleSave = () => {
     const data = { ...form, tags: form.tags.split(',').map(t=>t.trim()).filter(Boolean) };
     if (editing) updateImage(editing, data); else addImage(data);
-    setShowForm(false); setEditing(null);
+    setShowForm(false);
+    setEditing(null);
+    setOriginalItem(null);
   };
 
   return (
@@ -130,12 +189,12 @@ export default function AcervoPage() {
       </div>
 
       {showForm && (
-        <div className="overlay animate-fade-in" onClick={()=>setShowForm(false)}>
+        <div className="overlay animate-fade-in" onClick={handleCloseWithSave}>
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-2xl p-6 z-50 animate-scale-in glass-strong"
             style={{boxShadow:'0 24px 80px rgba(0,0,0,0.6)'}} onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold" style={{color:'var(--text-primary)'}}>{editing?'Editar':'Novo'} Item do Acervo</h2>
-              <button onClick={()=>setShowForm(false)} style={{color:'var(--text-muted)'}}><X size={18}/></button>
+              <button onClick={handleCloseWithSave} style={{color:'var(--text-muted)'}}><X size={18}/></button>
             </div>
             <div className="space-y-4">
               <div><label className="text-xs font-medium mb-1.5 block" style={{color:'var(--text-secondary)'}}>Título</label>
@@ -160,11 +219,34 @@ export default function AcervoPage() {
               <div><label className="text-xs font-medium mb-1.5 block" style={{color:'var(--text-secondary)'}}>Tags</label>
                 <input className="input-field" value={form.tags} onChange={e=>setForm({...form,tags:e.target.value})} placeholder="cenário, thumbnail, referência"/></div>
               <div className="flex gap-3 pt-2">
-                <button className="btn-ghost flex-1" onClick={()=>setShowForm(false)}>Cancelar</button>
+                <button className="btn-ghost flex-1" onClick={handleCancelClick}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSave}>{editing?'Salvar':'Criar'}</button>
               </div>
           </div>
         </div>
+        </div>
+      )}
+
+      {/* CANCEL CONFIRM MODAL */}
+      {showCancelConfirm && (
+        <div className="overlay animate-fade-in z-[60]" onClick={() => setShowCancelConfirm(false)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+            <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+              Tem certeza que deseja cancelar as alterações?
+            </p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                Continuar editando
+              </button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={handleDiscardChanges}>
+                Descartar alterações
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

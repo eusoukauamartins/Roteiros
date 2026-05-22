@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Package, Plus, Settings2, BarChart2, DollarSign,
   TrendingUp, LinkIcon, X, Maximize2, FileText, Target,
@@ -55,23 +55,25 @@ function ProductsTab() {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isNewItem, setIsNewItem] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
 
   const filteredProducts = products.filter(p => showTrash ? p.deletedAt : !p.deletedAt);
-
-  const editingProduct = products.find(p => p.id === editingId);
 
   const handleCreate = () => {
     const p = addProduct({ name: 'Novo Produto', price: 97 });
     setEditingId(p.id);
     setDraft({ ...p, name: 'Novo Produto', price: 97 });
     setHasChanges(false);
+    setIsNewItem(true);
   };
 
   const openEdit = (product) => {
     setEditingId(product.id);
     setDraft({ ...product });
     setHasChanges(false);
+    setIsNewItem(false);
   };
 
   const updateDraft = (updates) => {
@@ -86,17 +88,55 @@ function ProductsTab() {
       setHasChanges(false);
       setEditingId(null);
       setDraft(null);
+      setIsNewItem(false);
     }
   };
 
-  const handleCancel = () => {
-    if (hasChanges) {
-      if (!window.confirm('Descartar alterações não salvas?')) return;
+  const handleCloseWithSave = () => {
+    if (isNewItem && !hasChanges) {
+      permanentlyDeleteProduct(editingId);
+      setEditingId(null);
+      setDraft(null);
+      setIsNewItem(false);
+      return;
     }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      if (isNewItem) {
+        permanentlyDeleteProduct(editingId);
+      }
+      setEditingId(null);
+      setDraft(null);
+      setHasChanges(false);
+      setIsNewItem(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    if (isNewItem) {
+      permanentlyDeleteProduct(editingId);
+    }
+    setShowCancelConfirm(false);
     setEditingId(null);
     setDraft(null);
     setHasChanges(false);
+    setIsNewItem(false);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && editingId && draft && !showCancelConfirm && !showTrash) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingId, draft, showCancelConfirm, showTrash, hasChanges, isNewItem]);
 
   const getTicketColor = (type) => {
     if (type === 'Low Ticket') return '#10B981';
@@ -111,7 +151,7 @@ function ProductsTab() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
             <div className="flex items-center gap-3">
-              <button onClick={handleCancel} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
+              <button onClick={handleCancelClick} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
                 <X size={18} style={{ color: 'var(--text-muted)' }} />
               </button>
               <div>
@@ -122,7 +162,7 @@ function ProductsTab() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={handleCancel}
+              <button onClick={handleCancelClick}
                 className="btn-ghost text-xs px-4 py-2">
                 Cancelar
               </button>
@@ -132,17 +172,17 @@ function ProductsTab() {
                 <Check size={14} /> Salvar
               </button>
               {!showTrash ? (
-                <button onClick={() => { deleteProduct(editingId); setEditingId(null); setDraft(null); }} 
+                <button onClick={() => { deleteProduct(editingId); setEditingId(null); setDraft(null); setIsNewItem(false); }} 
                   className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
                   <Trash2 size={14} className="inline mr-1" /> Mover para Lixeira
                 </button>
               ) : (
                 <>
-                  <button onClick={() => { restoreProduct(editingId); setEditingId(null); setDraft(null); }} 
+                  <button onClick={() => { restoreProduct(editingId); setEditingId(null); setDraft(null); setIsNewItem(false); }} 
                     className="btn-ghost text-xs ml-2">
                     <RotateCcw size={14} className="inline mr-1" /> Restaurar
                   </button>
-                  <button onClick={() => { permanentlyDeleteProduct(editingId); setEditingId(null); setDraft(null); }} 
+                  <button onClick={() => { permanentlyDeleteProduct(editingId); setEditingId(null); setDraft(null); setIsNewItem(false); }} 
                     className="btn-ghost text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 ml-2">
                     <Trash2 size={14} className="inline mr-1" /> Excluir Permanente
                   </button>
@@ -150,6 +190,29 @@ function ProductsTab() {
               )}
             </div>
           </div>
+
+          {/* CANCEL CONFIRM MODAL */}
+          {showCancelConfirm && (
+            <div className="overlay animate-fade-in z-[60]" onClick={() => setShowCancelConfirm(false)}>
+              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 animate-scale-in glass-strong"
+                onClick={e => e.stopPropagation()}>
+                <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+                <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+                  Tem certeza que deseja cancelar as alterações?
+                </p>
+                <div className="flex gap-3">
+                  <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                    Continuar editando
+                  </button>
+                  <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                      style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                      onClick={handleDiscardChanges}>
+                    Descartar alterações
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-5">
             <div className="col-span-2 sm:col-span-1">

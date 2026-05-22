@@ -290,6 +290,7 @@ function ExportModal({ isOpen, onClose }) {
     headlines: true, scripts: true, flow: true,
     tasks: true, images: true, musics: true,
     benchmarks: true, products: true, learnings: true,
+    settings: true,
   });
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -309,6 +310,7 @@ function ExportModal({ isOpen, onClose }) {
     { key: 'images', label: 'Acervo', icon: Image },
     { key: 'musics', label: 'Músicas', icon: Music },
     { key: 'learnings', label: 'Aprendizados', icon: Lightbulb },
+    { key: 'settings', label: 'Configurações', icon: User },
   ];
 
   const toggleSection = (key) => {

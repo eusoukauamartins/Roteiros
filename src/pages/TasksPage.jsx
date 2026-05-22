@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Trash2, X, Edit3, Check, Clock, AlertTriangle, Flag,
   Repeat, CalendarClock, RotateCcw, GripVertical, Archive, CheckSquare
@@ -269,12 +269,16 @@ export default function TasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm);
+  const [originalSnapshot, setOriginalSnapshot] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [sortBy, setSortBy] = useState('manual');
   const [activeTab, setActiveTab] = useState('ativas');
   const [fastAdd, setFastAdd] = useState('');
+
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalSnapshot);
 
   /* ── active tasks (non-completed, non-deleted) ── */
   const activeTasks = useMemo(() => {
@@ -331,17 +335,20 @@ export default function TasksPage() {
   /* ── handlers ── */
   const openCreate = () => {
     setForm({ ...defaultForm });
+    setOriginalSnapshot({ ...defaultForm });
     setEditing(null);
     setShowForm(true);
   };
   const openEdit = (t) => {
-    setForm({
+    const d = {
       title: t.title, description: t.description || '', priority: t.priority,
       status: t.status, type: t.type || 'general', relatedCardId: t.relatedCardId || '',
       dueDate: t.dueDate || '', scheduledDate: t.scheduledDate || '',
       category: t.category || '', recurrence: t.recurrence || 'única',
       recurrenceDay: t.recurrenceDay || '', estimatedHours: t.estimatedHours || '',
-    });
+    };
+    setForm(d);
+    setOriginalSnapshot(d);
     setEditing(t.id);
     setShowForm(true);
   };
@@ -355,6 +362,38 @@ export default function TasksPage() {
     setShowForm(false);
     setEditing(null);
   };
+
+  const handleCloseWithSave = () => {
+    if (!editing && !hasChanges) {
+      setShowForm(false);
+      return;
+    }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      setShowForm(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setShowCancelConfirm(false);
+    setShowForm(false);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showForm && !showCancelConfirm) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForm, showCancelConfirm, form, hasChanges, editing]);
+
   const handleFastAdd = (e) => {
     if (e.key === 'Enter' && fastAdd.trim()) {
       addTask({ ...defaultForm, title: fastAdd.trim() });
@@ -566,12 +605,34 @@ export default function TasksPage() {
 
       {/* ═══ MODAL ═══ */}
       {showForm && (
-        <div className="overlay animate-fade-in" onClick={() => setShowForm(false)}>
+        <div className="overlay animate-fade-in" onClick={handleCancelClick}>
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-2xl p-6 z-50 animate-scale-in glass-strong"
             style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+            
+            {showCancelConfirm && (
+              <div className="absolute inset-0 z-10 glass-strong rounded-2xl flex items-center justify-center p-6 animate-fade-in">
+                <div className="text-center w-full">
+                  <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+                  <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+                    Tem certeza que deseja cancelar as alterações não salvas?
+                  </p>
+                  <div className="flex gap-3">
+                    <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                      Continuar editando
+                    </button>
+                    <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                        style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                        onClick={handleDiscardChanges}>
+                      Descartar alterações
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{editing ? 'Editar' : 'Nova'} Tarefa</h2>
-              <button onClick={() => setShowForm(false)} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
+              <button onClick={handleCancelClick} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div className="space-y-4">
               {/* Título */}
@@ -661,7 +722,7 @@ export default function TasksPage() {
               </div>
               {/* Actions */}
               <div className="flex gap-3 pt-2">
-                <button className="btn-ghost flex-1" onClick={() => setShowForm(false)}>Cancelar</button>
+                <button className="btn-ghost flex-1" onClick={handleCancelClick}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSave}>{editing ? 'Salvar' : 'Criar'}</button>
               </div>
             </div>

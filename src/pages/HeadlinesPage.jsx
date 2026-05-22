@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Star, Copy, ArrowRight, Trash2, X, Edit3, RotateCcw } from 'lucide-react';
 import useHeadlineStore from '../stores/useHeadlineStore';
@@ -14,6 +14,8 @@ export default function HeadlinesPage() {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [originalItem, setOriginalItem] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [search, setSearch] = useState('');
   const [filterNiche, setFilterNiche] = useState('');
   const [filterFav, setFilterFav] = useState(false);
@@ -32,16 +34,62 @@ export default function HeadlinesPage() {
   }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const openCreate = () => {
-    setForm({ text: '', niche: '', tags: '', notes: '' });
+    const data = { text: '', niche: '', tags: '', notes: '' };
+    setForm(data);
+    setOriginalItem(data);
     setEditing(null);
     setShowForm(true);
   };
 
   const openEdit = (h) => {
-    setForm({ text: h.text, niche: h.niche, tags: (h.tags || []).join(', '), notes: h.notes || '' });
+    const data = { text: h.text, niche: h.niche, tags: (h.tags || []).join(', '), notes: h.notes || '' };
+    setForm(data);
+    setOriginalItem(data);
     setEditing(h.id);
     setShowForm(true);
   };
+
+  const hasChanges = () => {
+    if (!originalItem) return false;
+    return JSON.stringify(form) !== JSON.stringify(originalItem);
+  };
+
+  const handleCloseWithSave = () => {
+    if (!editing && !form.text.trim() && !form.notes.trim() && !form.tags.trim()) {
+      setShowForm(false);
+      setEditing(null);
+      setOriginalItem(null);
+      return;
+    }
+    handleSave();
+  };
+
+  const handleCancelClick = () => {
+    if (hasChanges()) {
+      setShowCancelConfirm(true);
+    } else {
+      setShowForm(false);
+      setEditing(null);
+      setOriginalItem(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setShowCancelConfirm(false);
+    setShowForm(false);
+    setEditing(null);
+    setOriginalItem(null);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showForm && !showCancelConfirm && !itemToDelete && !itemToPermanentlyDelete) {
+        handleCloseWithSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForm, showCancelConfirm, itemToDelete, itemToPermanentlyDelete, form, editing]);
 
   const handleSave = () => {
     const data = { ...form, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean) };
@@ -52,6 +100,7 @@ export default function HeadlinesPage() {
     }
     setShowForm(false);
     setEditing(null);
+    setOriginalItem(null);
   };
 
   const useInFlow = (h) => {
@@ -165,7 +214,7 @@ export default function HeadlinesPage() {
 
       {/* Create/Edit Modal */}
       {showForm && (
-        <div className="overlay animate-fade-in" onClick={() => setShowForm(false)}>
+        <div className="overlay animate-fade-in" onClick={handleCloseWithSave}>
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-2xl p-6 z-50 animate-scale-in glass-strong"
             style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}
             onClick={e => e.stopPropagation()}>
@@ -173,7 +222,7 @@ export default function HeadlinesPage() {
               <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {editing ? 'Editar Headline' : 'Nova Headline'}
               </h2>
-              <button onClick={() => setShowForm(false)} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
+              <button onClick={handleCloseWithSave} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -199,11 +248,34 @@ export default function HeadlinesPage() {
                   onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Notas..." />
               </div>
               <div className="flex gap-3 pt-2">
-                <button className="btn-ghost flex-1" onClick={() => setShowForm(false)}>Cancelar</button>
+                <button className="btn-ghost flex-1" onClick={handleCancelClick}>Cancelar</button>
                 <button className="btn-accent flex-1" onClick={handleSave}>
                   {editing ? 'Salvar' : 'Criar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL CONFIRM MODAL */}
+      {showCancelConfirm && (
+        <div className="overlay animate-fade-in z-[60]" onClick={() => setShowCancelConfirm(false)}>
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-2xl p-6 animate-scale-in glass-strong"
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Cancelar edições?</h3>
+            <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
+              Tem certeza que deseja cancelar as alterações?
+            </p>
+            <div className="flex gap-3">
+              <button className="btn-ghost flex-1 text-sm py-2" onClick={() => setShowCancelConfirm(false)}>
+                Continuar editando
+              </button>
+              <button className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onClick={handleDiscardChanges}>
+                Descartar alterações
+              </button>
             </div>
           </div>
         </div>

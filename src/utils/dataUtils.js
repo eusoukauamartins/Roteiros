@@ -386,6 +386,12 @@ export function exportData(options = {}) {
   if (sections.includes('niches')) {
     data.niches = useNicheStore.getState().niches;
   }
+  if (sections.includes('settings')) {
+    data.settings = {
+      creatorVoice: useSettingsStore.getState().creatorVoice || {},
+      niches: useNicheStore.getState().niches || []
+    };
+  }
   if (sections.includes('learnings') || sections.includes('aprendizados')) {
     data.learnings = applyFilters(useLearningStore.getState().learnings || [], { hasFavorite: true });
   }
@@ -393,8 +399,10 @@ export function exportData(options = {}) {
   // ===== ENRICHMENT PARA IA =====
   if (aiOptimized) {
     const creatorVoice = useSettingsStore.getState().creatorVoice || {};
-    data._instructions = "Este JSON é o estado do app 'Roteiros' do criador. Leia _schema antes de tudo. Use _summary pra contexto geral. Use _relations pra cruzar entidades. _creatorVoice descreve o tom e estilo do criador — use isso ao gerar qualquer conteúdo.";
+    const niches = useNicheStore.getState().niches || [];
+    data._instructions = "Este JSON é o estado do app 'Roteiros' do criador. Leia _schema antes de tudo. Use _summary pra contexto geral. Use _relations pra cruzar entidades. _creatorVoice descreve o tom e estilo do criador — use isso ao gerar qualquer conteúdo. _niches contém os nichos configurados e ativos.";
     data._creatorVoice = creatorVoice;
+    data._niches = niches;
     data._schema = buildSchema();
     data._summary = buildSummary(data);
     data._relations = buildRelations(data);
@@ -486,6 +494,22 @@ export function exportMarkdownSummary() {
     });
   }
 
+  const creatorVoice = useSettingsStore.getState().creatorVoice;
+  if (creatorVoice && (creatorVoice.bio || creatorVoice.style)) {
+    md += `\n## Voz do Criador\n`;
+    if (creatorVoice.bio) md += `- **Identidade:** ${creatorVoice.bio}\n`;
+    if (creatorVoice.style) md += `- **Estilo:** ${creatorVoice.style}\n`;
+    if (creatorVoice.wordsToUse) md += `- **Usa:** ${creatorVoice.wordsToUse}\n`;
+    if (creatorVoice.wordsToAvoid) md += `- **Evita:** ${creatorVoice.wordsToAvoid}\n`;
+    if (creatorVoice.examples) md += `- **Exemplo:** ${creatorVoice.examples}\n`;
+  }
+
+  const niches = useNicheStore.getState().niches;
+  if (niches && niches.length > 0) {
+    md += `\n## Nichos Ativos\n`;
+    md += `- ${niches.join(', ')}\n`;
+  }
+
   return md;
 }
 
@@ -513,6 +537,7 @@ export function countExportItems(data) {
   if (data.products) total += data.products.length;
   if (data.projections) total += data.projections.length;
   if (data.learnings) total += data.learnings.length;
+  if (data.settings) total += 1;
   return total;
 }
 
@@ -534,6 +559,24 @@ export function importData(jsonData) {
     if (data.products) useProductStore.getState().importProducts(data.products);
     if (data.projections) useProductStore.getState().importProjections(data.projections);
     if (data.learnings) useLearningStore.getState().importLearnings(data.learnings);
+    
+    // Import Settings (Creator Voice & Niches)
+    if (data.settings) {
+      if (data.settings.creatorVoice) {
+        useSettingsStore.getState().setCreatorVoice(data.settings.creatorVoice);
+      }
+      if (data.settings.niches && Array.isArray(data.settings.niches)) {
+        const currentNiches = useNicheStore.getState().niches || [];
+        const mergedNiches = Array.from(new Set([...currentNiches, ...data.settings.niches]));
+        useNicheStore.setState({ niches: mergedNiches });
+      }
+    } else if (data.niches && Array.isArray(data.niches)) {
+      // Fallback for older exports where niches were exported at root
+      const currentNiches = useNicheStore.getState().niches || [];
+      const mergedNiches = Array.from(new Set([...currentNiches, ...data.niches]));
+      useNicheStore.setState({ niches: mergedNiches });
+    }
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
