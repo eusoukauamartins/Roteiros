@@ -17,8 +17,7 @@ const formatCurrency = (val) => {
 function PageLinksEditor({ links, onChange }) {
   const addLink = () => onChange([...links, { id: Date.now().toString(), name: '', url: '', notes: '' }]);
   const updateLink = (idx, field, val) => {
-    const newLinks = [...links];
-    newLinks[idx][field] = val;
+    const newLinks = links.map((link, i) => i === idx ? { ...link, [field]: val } : link);
     onChange(newLinks);
   };
   const removeLink = (idx) => onChange(links.filter((_, i) => i !== idx));
@@ -30,15 +29,15 @@ function PageLinksEditor({ links, onChange }) {
           style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)' }}>
           <div className="flex gap-2">
             <input className="input-field text-xs flex-1 h-8" placeholder="Nome (Ex: VSL, Checkout)"
-              value={link.name} onChange={e => updateLink(idx, 'name', e.target.value)} />
+              value={link.name || ""} onChange={e => updateLink(idx, 'name', e.target.value)} />
             <input className="input-field text-xs flex-[2] h-8" placeholder="URL da página..."
-              value={link.url} onChange={e => updateLink(idx, 'url', e.target.value)} />
+              value={link.url || ""} onChange={e => updateLink(idx, 'url', e.target.value)} />
             <button onClick={() => removeLink(idx)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors">
               <X size={14} />
             </button>
           </div>
           <input className="input-field text-xs h-7 bg-transparent border-none px-2 text-[var(--text-muted)]" placeholder="Observação opcional..."
-            value={link.notes} onChange={e => updateLink(idx, 'notes', e.target.value)} />
+            value={link.notes || ""} onChange={e => updateLink(idx, 'notes', e.target.value)} />
         </div>
       ))}
       <button className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5 mt-2" onClick={addLink}>
@@ -64,14 +63,36 @@ function ProductsTab() {
   const handleCreate = () => {
     const p = addProduct({ name: 'Novo Produto', price: 97 });
     setEditingId(p.id);
-    setDraft({ ...p, name: 'Novo Produto', price: 97 });
+    setDraft({
+      id: p.id || '',
+      name: 'Novo Produto',
+      shortDescription: '',
+      ticketType: 'Medium Ticket',
+      price: '97',
+      comparePrice: '',
+      cta: '',
+      links: [],
+      notes: '',
+      deletedAt: null
+    });
     setHasChanges(false);
     setIsNewItem(true);
   };
 
   const openEdit = (product) => {
     setEditingId(product.id);
-    setDraft({ ...product });
+    setDraft({
+      id: product.id || '',
+      name: product.name || '',
+      shortDescription: product.shortDescription || '',
+      ticketType: product.ticketType || 'Medium Ticket',
+      price: product.price !== undefined && product.price !== null ? String(product.price) : '',
+      comparePrice: product.comparePrice !== undefined && product.comparePrice !== null ? String(product.comparePrice) : '',
+      cta: product.cta || '',
+      links: Array.isArray(product.links) ? product.links : [],
+      notes: product.notes || '',
+      deletedAt: product.deletedAt || null
+    });
     setHasChanges(false);
     setIsNewItem(false);
   };
@@ -84,7 +105,13 @@ function ProductsTab() {
   const handleSave = () => {
     if (draft && editingId) {
       const { id, createdAt, ...fields } = draft;
-      updateProduct(editingId, fields);
+      const priceNum = parseFloat(fields.price) || 0;
+      const comparePriceNum = parseFloat(fields.comparePrice) || 0;
+      updateProduct(editingId, {
+        ...fields,
+        price: priceNum,
+        comparePrice: comparePriceNum
+      });
       setHasChanges(false);
       setEditingId(null);
       setDraft(null);
@@ -151,7 +178,7 @@ function ProductsTab() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
             <div className="flex items-center gap-3">
-              <button onClick={handleCancelClick} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
+              <button onClick={handleCloseWithSave} className="p-2 rounded-lg hover:bg-[var(--surface-hover)]">
                 <X size={18} style={{ color: 'var(--text-muted)' }} />
               </button>
               <div>
@@ -217,11 +244,11 @@ function ProductsTab() {
           <div className="grid grid-cols-2 gap-5">
             <div className="col-span-2 sm:col-span-1">
               <label className="field-label">Nome do Produto</label>
-              <input className="input-field font-semibold text-base" value={draft.name} onChange={e => updateDraft({ name: e.target.value })} />
+              <input className="input-field font-semibold text-base" value={draft.name || ""} onChange={e => updateDraft({ name: e.target.value })} />
             </div>
             <div className="col-span-2 sm:col-span-1">
               <label className="field-label">Tipo de Ticket</label>
-              <select className="input-field" value={draft.ticketType} onChange={e => updateDraft({ ticketType: e.target.value })}>
+              <select className="input-field" value={draft.ticketType || "Medium Ticket"} onChange={e => updateDraft({ ticketType: e.target.value })}>
                 <option value="Low Ticket">Low Ticket</option>
                 <option value="Medium Ticket">Medium Ticket</option>
                 <option value="High Ticket">High Ticket</option>
@@ -232,22 +259,22 @@ function ProductsTab() {
           <div className="grid grid-cols-2 gap-5">
             <div className="col-span-1">
               <label className="field-label">Preço Atual (R$)</label>
-              <input type="number" step="0.01" className="input-field" value={draft.price} onChange={e => updateDraft({ price: parseFloat(e.target.value) || 0 })} />
+              <input type="number" step="0.01" className="input-field" value={draft.price ?? ""} onChange={e => updateDraft({ price: e.target.value })} />
             </div>
             <div className="col-span-1">
               <label className="field-label">Preço "De" Comparativo (R$)</label>
-              <input type="number" step="0.01" className="input-field" value={draft.comparePrice} onChange={e => updateDraft({ comparePrice: parseFloat(e.target.value) || 0 })} />
+              <input type="number" step="0.01" className="input-field" value={draft.comparePrice ?? ""} onChange={e => updateDraft({ comparePrice: e.target.value })} />
             </div>
           </div>
 
           <div>
             <label className="field-label">Descrição Curta</label>
-            <input className="input-field" placeholder="Promessa principal do produto..." value={draft.shortDescription} onChange={e => updateDraft({ shortDescription: e.target.value })} />
+            <input className="input-field" placeholder="Promessa principal do produto..." value={draft.shortDescription || ""} onChange={e => updateDraft({ shortDescription: e.target.value })} />
           </div>
 
           <div>
             <label className="field-label">CTA Principal</label>
-            <input className="input-field" placeholder="Ex: Quero garantir minha vaga" value={draft.cta} onChange={e => updateDraft({ cta: e.target.value })} />
+            <input className="input-field" placeholder="Ex: Quero garantir minha vaga" value={draft.cta || ""} onChange={e => updateDraft({ cta: e.target.value })} />
           </div>
 
           <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
@@ -257,13 +284,13 @@ function ProductsTab() {
 
           <div className="pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
             <label className="field-label">Observações Estratégicas</label>
-            <textarea className="textarea-field min-h-[100px]" placeholder="Anotações sobre a oferta, bônus, detalhes importantes..." value={draft.notes} onChange={e => updateDraft({ notes: e.target.value })} />
+            <textarea className="textarea-field min-h-[100px]" placeholder="Anotações sobre a oferta, bônus, detalhes importantes..." value={draft.notes || ""} onChange={e => updateDraft({ notes: e.target.value })} />
           </div>
 
           {/* Bottom Save/Cancel bar */}
           {hasChanges && (
             <div className="sticky bottom-4 flex justify-end gap-3 pt-4">
-              <button onClick={handleCancel} className="btn-ghost text-sm px-5 py-2.5">
+              <button onClick={handleCancelClick} className="btn-ghost text-sm px-5 py-2.5">
                 Cancelar
               </button>
               <button onClick={handleSave} className="btn-accent text-sm px-6 py-2.5 flex items-center gap-2">
