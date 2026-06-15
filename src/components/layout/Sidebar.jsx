@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, GitBranch, Type, FileText,
-  Archive, Music, CheckSquare, Bot, Settings,
-  ChevronLeft, ChevronRight, Video, Package, Telescope, CheckCircle2, BookOpen
+  LayoutDashboard, Type, FileText,
+  Archive, Bot, Settings,
+  ChevronLeft, ChevronRight, Video, Package, CheckCircle2, BookOpen
 } from 'lucide-react';
 import useSettingsStore from '../../stores/useSettingsStore';
 
@@ -31,7 +31,6 @@ const navGroups = [
     items: [
       { path: '/', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/videos', label: 'Vídeos', icon: Video },
-      { path: '/tasks', label: 'Tarefas', icon: CheckSquare },
     ],
   },
   {
@@ -40,13 +39,11 @@ const navGroups = [
       { path: '/headlines', label: 'Headlines', icon: Type },
       { path: '/scripts', label: 'Roteiros', icon: FileText },
       { path: '/acervo', label: 'Acervo', icon: Archive },
-      { path: '/music', label: 'Músicas', icon: Music },
     ],
   },
   {
     label: 'Inteligência',
     items: [
-      { path: '/benchmark', label: 'Benchmark', icon: Telescope },
       { path: '/learnings', label: 'Aprendizados', icon: BookOpen },
       { path: '/postados', label: 'Postados', icon: CheckCircle2 },
     ],
